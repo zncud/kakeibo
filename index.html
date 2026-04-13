@@ -14,7 +14,14 @@
 <!-- フォント -->
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <!-- PDF.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script>
+// PDF.js ワーカーとCMapをスクリプト読み込み直後に設定
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+}
+</script>
 <style>
 :root {
   --bg:#fdf6f0;--bg2:#fef9f5;--surface:#ffffff;
@@ -1884,14 +1891,14 @@ async function handlePDFFile(file) {
     if (typeof pdfjsLib === 'undefined') {
       showToast('⚠ PDF.jsの読み込みに失敗しました', true); return;
     }
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
     const buffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({
       data: buffer,
-      cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+      cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
       cMapPacked: true,
+      useWorkerFetch: false,
+      isEvalSupported: false,
+      useSystemFonts: false,
     }).promise;
 
     let fullText = '';
