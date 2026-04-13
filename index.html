@@ -2011,8 +2011,17 @@ function parseRakutenPDF(lines) {
     const date = dateMatch[1];
     const shop = cols[1] || '';
 
-    // 楽天PDFは cols[4] が利用金額
-    const amount = parseAmount(cols[4]);
+    // まずタブ分割の5列目を最優先
+    let amount = parseAmount(cols[4]);
+
+    // 5列目が取れないPDF崩れ用の保険
+    if (!(amount > 0)) {
+      const nums = cols
+        .slice(2)
+        .map(c => parseAmount(c))
+        .filter(v => v >= 10); // 1回払いの「1」を除外
+      amount = nums[0] || 0;
+    }
 
     if (date && shop && amount > 0) {
       rows.push({ date, shop, amount });
