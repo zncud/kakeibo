@@ -2068,61 +2068,81 @@ function mergeSMBCLines(lines) {
 // 行フォーマット: "26/02/28\t大阪ガス利用料金\t413\t１\t１\t413"
 function parseSMBCPDF(lines) {
   const rows = [];
-  const mergedLines = mergeSMBCLines(lines);
+  let pendingShopPrefix = '';
 
-  console.log('[SMBC mergedLines]', mergedLines);
+  for (let i = 0; i < lines.length; i++) {
+    const s = lines[i].trim();
+    if (!s) continue;
 
-  mergedLines.forEach((line, idx) => {
-    const s = line.trim();
-
-    // 例:
-    // # 26/02/28 大阪ガス利用料金 413 １ １ 413 ２６年 ２月 1440020845900 ◎
-    // B# 26/03/12 3,277 １ １ 3,277 20.00 USD 163.865 03 12 ◎ CLAUDE.AI SUBSCRIPTION (SAN FRA NCISCO)
-
-    const dateMatch = s.match(/^(?:B#|#)?\s*(\d{2})\/(\d{2})\/(\d{2})\s+/);
-    if (!dateMatch) {
-      console.log('[SMBC NG date]', idx, s);
-      return;
+    // 1) Claudeみたいな「店名前半だけ」の行を保持
+    // 例: CLAUDE.AI SUBSCRIPTION (SAN FRA
+    if (
+      !/^(?:B#|#)?\s*\d{2}\/\d{2}\/\d{2}/.test(s) &&
+      /[A-Za-zＡ-Ｚａ-ｚ()]/.test(s) &&
+      !/[◎¥円]$/.test(s)
+    ) {
+      pendingShopPrefix = s;
+      console.log('[SMBC PREFIX]', pendingShopPrefix);
+      continue;
     }
 
-    const yy = dateMatch[1];
-    const mm = dateMatch[2];
-    const dd = dateMatch[3];
+    // 2) 通常の明細行
+    const m = s.match(/^(?:B#|#)?\s*(\d{2})\/(\d{2})\/(\d{2})\s+(.*)$/);
+    if (!m) continue;
 
-    // 金額は「回数 １ １」の直前の数値を採る
-    const amountMatch = s.match(/\s+([\d,]+)\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+/);
-    if (!amountMatch) {
-      console.log('[SMBC NG amount]', idx, s);
-      return;
+    const yy = m[1];
+    const mm = m[2];
+    const dd = m[3];
+    let body = m[4].replace(/\s+/g, ' ').trim();
+
+    // 金額を抽出
+    // 例: 3,277 １ １ 3,277 ...
+    const amtMatch = body.match(/([\d,]+)\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+/);
+    if (!amtMatch) {
+      console.log('[SMBC NG amount]', s);
+      continue;
     }
+    const amount = parseAmount(amtMatch[1]);
+    if (!(amount > 0)) continue;
 
-    const amount = parseAmount(amountMatch[1]);
-    if (!(amount > 0)) {
-      console.log('[SMBC NG parsed amount]', idx, s);
-      return;
-    }
-
-    // 日付を消す
-    let body = s.replace(/^(?:B#|#)?\s*\d{2}\/\d{2}\/\d{2}\s+/, '');
-
-    // 先頭に金額が来る崩れ行（Claudeみたいなケース）は、
-    // 後ろに結合された店名を優先して使う
+    // body先頭が金額なら、店名は別行に飛んでいるケース
     let shop = '';
 
     if (/^[\d,]+\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+/.test(body)) {
-      const tailText = body.replace(/^[\d,]+\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+.*?(?=[A-Za-zＡ-Ｚａ-ｚ])/u, '').trim();
-      shop = tailText || '不明';
+      // Claudeケース:
+      // 前行: CLAUDE.AI SUBSCRIPTION (SAN FRA
+      // 次行: NCISCO)
+      let suffix = '';
+      const next = (lines[i + 1] || '').trim();
+      if (
+        next &&
+        !/^(?:B#|#)?\s*\d{2}\/\d{2}\/\d{2}/.test(next) &&
+        !/^[＜※]/.test(next)
+      ) {
+        suffix = next;
+        i++; // 次行を消費
+      }
+
+      shop = [pendingShopPrefix, suffix].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+      pendingShopPrefix = '';
     } else {
-      // 通常行は、最初の金額の手前までを店名
+      // 通常ケース: 金額の前までを店名
       shop = body.replace(/\s+[\d,]+\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+.*$/, '').trim();
+      if (pendingShopPrefix) {
+        shop = `${pendingShopPrefix} ${shop}`.replace(/\s+/g, ' ').trim();
+        pendingShopPrefix = '';
+      }
     }
 
     const year = '20' + yy;
     const date = `${year}/${mm}/${dd}`;
 
-    console.log('[SMBC OK]', { idx, date, shop, amount, raw: s });
-    rows.push({ date, shop, amount });
-  });
+    console.log('[SMBC OK]', { date, shop, amount, raw: s });
+
+    if (shop && amount > 0) {
+      rows.push({ date, shop, amount });
+    }
+  }
 
   console.log('[SMBC rows]', rows);
   return rows;
