@@ -1,0 +1,2558 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>おかねノート</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#fdf6f0;--bg2:#fef9f5;--surface:#ffffff;
+  --border:#f0e6da;--border2:#e8d8c8;
+  --text:#4a3728;--text2:#8a7060;--text3:#b8a090;
+  --accent:#e8835a;--accent-light:#fde8dc;--accent2:#f0a882;
+  --pink:#f0879a;--pink-light:#fdeef1;
+  --mint:#6dbf9e;--mint-light:#e8f7f1;
+  --blue:#7aabda;--blue-light:#e8f2fb;
+  --yellow:#f5c842;--yellow-light:#fef8e1;
+  --purple:#b088d4;--purple-light:#f2ebfa;
+  --red:#e05a5a;--red-light:#fdeaea;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-serif;min-height:100vh;overflow-x:hidden}
+
+.header{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(253,246,240,0.96);backdrop-filter:blur(10px);border-bottom:1.5px solid var(--border);height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 18px}
+.logo{font-size:18px;font-weight:700;color:var(--accent)}
+.header-date{background:var(--accent-light);color:var(--accent);font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;font-family:'DM Mono',monospace}
+
+.nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(255,255,255,0.97);border-top:1.5px solid var(--border);display:flex}
+.nav-item{flex:1;padding:8px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;border:none;background:none;color:var(--text3);font-size:9px;font-family:'Zen Maru Gothic',sans-serif;font-weight:500;transition:color 0.2s}
+.nav-item.active{color:var(--accent)}
+.nav-icon{font-size:20px;line-height:1}
+
+.screen{display:none;padding:70px 0 88px;min-height:100vh}
+.screen.active{display:block}
+.container{padding:0 16px;max-width:480px;margin:0 auto}
+
+.screen-title{font-size:20px;font-weight:700;margin-bottom:2px}
+.screen-sub{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.2em;margin-bottom:20px}
+
+.card{background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(74,55,40,.04)}
+.card-label{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.2em;text-transform:uppercase;margin-bottom:10px}
+
+.badge{font-size:10px;padding:3px 10px;border-radius:20px;font-weight:700}
+.badge-mint{background:var(--mint-light);color:var(--mint)}
+.badge-yellow{background:var(--yellow-light);color:#c49a00}
+.badge-blue{background:var(--blue-light);color:var(--blue)}
+
+.big-num{font-family:'DM Mono',monospace;font-size:28px;font-weight:500;letter-spacing:-.02em}
+.unit{font-size:12px;color:var(--text3);margin-left:2px}
+
+.list-item{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border)}
+.list-item:last-child{border-bottom:none}
+.list-left{display:flex;align-items:center;gap:10px}
+.list-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.list-name{font-size:13px;font-weight:500}
+.list-sub{font-size:10px;color:var(--text3);margin-top:1px}
+.list-amount{font-family:'DM Mono',monospace;font-size:14px;font-weight:500}
+
+.btn{width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;font-size:13px;font-weight:700;font-family:'Zen Maru Gothic',sans-serif;transition:all .15s}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(232,131,90,.3)}
+.btn-outline{background:transparent;color:var(--accent);border:1.5px solid var(--accent)}
+.btn-mint{background:var(--mint);color:#fff;box-shadow:0 4px 12px rgba(109,191,158,.3)}
+.btn-sm{width:auto;padding:7px 14px;font-size:11px;border-radius:10px}
+.btn-ghost{background:transparent;color:var(--text3);border:1.5px solid var(--border2);font-size:11px;padding:6px 12px;border-radius:8px;width:auto;cursor:pointer;font-family:'Zen Maru Gothic',sans-serif;font-weight:500}
+
+.form-group{margin-bottom:14px}
+.form-label{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.2em;display:block;margin-bottom:7px}
+.form-input{width:100%;background:var(--bg);border:1.5px solid var(--border2);border-radius:10px;padding:11px 14px;color:var(--text);font-size:14px;font-family:'Zen Maru Gothic',sans-serif;font-weight:500;outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+.form-input:focus{border-color:var(--accent);background:#fff}
+.form-input::placeholder{color:var(--text3);font-weight:400}
+
+.upload-area{border:2px dashed var(--border2);border-radius:14px;padding:28px 16px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:14px;background:var(--bg2)}
+.upload-area:hover{border-color:var(--accent);background:var(--accent-light)}
+.upload-icon{font-size:36px;margin-bottom:8px}
+.upload-text{font-size:13px;color:var(--text2);font-weight:500}
+.upload-hint{font-size:10px;color:var(--text3);margin-top:5px;font-family:'DM Mono',monospace}
+
+.preview-table{width:100%;border-collapse:collapse;font-size:11px}
+.preview-table th{text-align:left;padding:5px 6px;color:var(--text3);font-family:'DM Mono',monospace;font-weight:400;letter-spacing:.1em;border-bottom:1px solid var(--border)}
+.preview-table td{padding:7px 6px;border-bottom:1px solid var(--border);color:var(--text2)}
+.preview-table tr:last-child td{border-bottom:none}
+.preview-table .amt{font-family:'DM Mono',monospace;text-align:right;color:var(--text);font-weight:500}
+
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:3px 8px 3px 10px;border-radius:20px;font-weight:700;background:var(--accent-light);color:var(--accent);margin:2px}
+.chip-mint{background:var(--mint-light);color:var(--mint)}
+.chip-blue{background:var(--blue-light);color:var(--blue)}
+.chip-pink{background:var(--pink-light);color:var(--pink)}
+.chip-purple{background:var(--purple-light);color:var(--purple)}
+.chip-del{font-size:11px;opacity:.6;cursor:pointer;line-height:1;background:none;border:none;color:inherit;padding:0;font-weight:700}
+.chip-plain{display:inline-block;padding:3px 10px}
+
+.asset-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.asset-tile{background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:14px 12px;cursor:pointer;transition:all .15s;box-shadow:0 2px 8px rgba(74,55,40,.04)}
+.asset-tile:active{transform:scale(.97)}
+.asset-tile-icon{font-size:22px;margin-bottom:6px}
+.asset-tile-label{font-size:9px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.15em;margin-bottom:4px}
+.asset-tile-value{font-family:'DM Mono',monospace;font-size:15px;font-weight:500}
+.asset-tile-sub{font-size:9px;margin-top:3px}
+
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.bar-label{font-size:11px;color:var(--text2);width:64px;flex-shrink:0;font-weight:500}
+.bar-track{flex:1;height:8px;border-radius:4px;background:var(--border);overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .6s ease}
+.bar-value{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);width:58px;text-align:right;flex-shrink:0}
+
+.diff-box{border-radius:12px;padding:13px 14px;margin-bottom:10px}
+.diff-ok{background:var(--mint-light);border:1.5px solid rgba(109,191,158,.3)}
+.diff-warn{background:var(--yellow-light);border:1.5px solid rgba(245,200,66,.4)}
+
+.period-selector{display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+.period-select{background:var(--surface);border:1.5px solid var(--border2);border-radius:10px;padding:7px 12px;color:var(--text);font-size:13px;font-weight:700;font-family:'Zen Maru Gothic',sans-serif;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none}
+.period-label{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace}
+
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border)}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-size:13px;font-weight:500}
+.setting-sub{font-size:10px;color:var(--text3);margin-top:2px}
+.setting-value{background:var(--accent-light);color:var(--accent);font-size:12px;font-weight:700;padding:5px 12px;border-radius:8px;cursor:pointer;font-family:'DM Mono',monospace}
+
+.toggle{position:relative;width:44px;height:24px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:var(--border2);border-radius:12px;transition:background .2s}
+.toggle input:checked+.toggle-track{background:var(--mint)}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.toggle input:checked~.toggle-thumb{transform:translateX(20px)}
+
+.divider{height:1px;background:var(--border);margin:16px 0}
+
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--mint);color:#fff;padding:10px 22px;border-radius:30px;font-size:12px;font-weight:700;opacity:0;transition:all .25s;pointer-events:none;white-space:nowrap;z-index:500;box-shadow:0 4px 16px rgba(109,191,158,.4)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.warn{background:var(--red);box-shadow:0 4px 16px rgba(224,90,90,.4)}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(74,55,40,.3);z-index:300;display:none;align-items:flex-end;backdrop-filter:blur(3px)}
+.modal-overlay.open{display:flex}
+.modal-sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:16px 20px 44px;animation:slideUp .3s ease;max-height:88vh;overflow-y:auto}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:40px;height:4px;border-radius:2px;background:var(--border2);margin:0 auto 18px}
+.modal-title{font-size:17px;font-weight:700;color:var(--text);margin-bottom:18px}
+
+.dup-warning{background:var(--yellow-light);border:1.5px solid rgba(245,200,66,.5);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#9a7a00;font-weight:500;display:none}
+
+/* 符号切替ボタン */
+.sign-toggle{display:flex;gap:0;margin-bottom:14px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border2)}
+.sign-btn{flex:1;padding:10px;border:none;cursor:pointer;font-size:13px;font-weight:700;font-family:'Zen Maru Gothic',sans-serif;background:var(--bg);color:var(--text3);transition:all .15s}
+.sign-btn.active-pos{background:var(--mint-light);color:var(--mint)}
+.sign-btn.active-neg{background:var(--red-light);color:var(--red)}
+
+/* 調整プレビュー */
+.adjust-preview{border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;font-weight:700;text-align:center;display:none}
+.adjust-preview.pos{background:var(--mint-light);color:var(--mint)}
+.adjust-preview.neg{background:var(--red-light);color:var(--red)}
+
+/* 証券利益率グラフ */
+.rate-chart{padding:8px 0}
+.rate-bars{display:flex;align-items:center;gap:0;height:110px;position:relative}
+.rate-zero-line{position:absolute;left:0;right:0;height:1.5px;background:var(--border2);z-index:1}
+.rate-col{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;height:110px}
+.rate-bar-pos{width:70%;border-radius:3px 3px 0 0;background:var(--mint);position:absolute;bottom:50%;left:50%;transform:translateX(-50%);min-height:2px;transition:height .5s ease}
+.rate-bar-neg{width:70%;border-radius:0 0 3px 3px;background:var(--red);position:absolute;top:50%;left:50%;transform:translateX(-50%);min-height:2px;transition:height .5s ease}
+.rate-label{position:absolute;bottom:-18px;font-size:9px;color:var(--text3);font-family:'DM Mono',monospace;white-space:nowrap}
+.rate-label.current{color:var(--accent);font-weight:700}
+.rate-value{position:absolute;font-size:8px;font-family:'DM Mono',monospace;font-weight:700;white-space:nowrap}
+.rate-value.pos{color:var(--mint)}
+.rate-value.neg{color:var(--red)}
+
+/* 資産推移 */
+.trend-area{display:flex;align-items:flex-end;gap:4px;height:100px;padding:0 2px;margin-bottom:4px}
+.trend-col{flex:1;display:flex;flex-direction:column;align-items:center}
+.trend-stack{width:100%;display:flex;flex-direction:column;justify-content:flex-end;height:84px;gap:1px}
+.trend-seg{width:100%;min-height:2px}
+.trend-seg:first-child{border-radius:3px 3px 0 0}
+.trend-total-label{font-size:8px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:2px;text-align:center;width:100%}
+.trend-month-label{font-size:9px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:4px;text-align:center;width:100%}
+.trend-month-label.current{color:var(--accent);font-weight:700}
+.trend-legend{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap}
+.trend-legend-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)}
+.trend-legend-dot{width:10px;height:10px;border-radius:2px}
+
+.asset-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px}
+.asset-table th{text-align:left;padding:5px 8px;color:var(--text3);font-family:'DM Mono',monospace;font-weight:400;font-size:10px;letter-spacing:.1em;border-bottom:1px solid var(--border)}
+.asset-table td{padding:7px 8px;border-bottom:1px solid var(--border);color:var(--text2)}
+.asset-table tr:last-child td{border-bottom:none}
+.asset-table .num{font-family:'DM Mono',monospace;text-align:right;color:var(--text);font-weight:500}
+.asset-table .pos{color:var(--mint)!important}
+.asset-table .neg{color:var(--red)!important}
+
+.reconcile-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;margin-bottom:14px}
+.status-open{background:var(--yellow-light);color:#9a7a00}
+.status-done{background:var(--mint-light);color:var(--mint)}
+
+.deposit-row{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg);border:1.5px solid var(--border2);border-radius:10px;margin-bottom:14px}
+.deposit-amount{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:var(--text)}
+.deposit-label-sm{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.15em;margin-bottom:2px}
+
+.profit-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.profit-row:last-child{border-bottom:none}
+.profit-label{font-size:12px;color:var(--text2)}
+.profit-value{font-family:'DM Mono',monospace;font-size:13px;font-weight:500}
+.profit-pos{color:var(--mint)}
+.profit-neg{color:var(--red)}
+
+.scroll-hint{text-align:center;font-size:10px;color:var(--text3);padding:8px 0;font-family:'DM Mono',monospace}
+.paypay-note{display:inline-block;background:var(--red-light);color:var(--red);font-size:9px;font-weight:700;padding:2px 8px;border-radius:6px;font-family:'DM Mono',monospace;margin-left:6px}
+
+/* 明細画面 */
+.detail-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.filter-chip{font-size:11px;padding:5px 12px;border-radius:20px;border:1.5px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;font-family:'Zen Maru Gothic',sans-serif;font-weight:500;transition:all .15s}
+.filter-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.detail-item{display:flex;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);gap:10px}
+.detail-item:last-child{border-bottom:none}
+.detail-left{flex:1;min-width:0}
+.detail-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.detail-meta{font-size:10px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:6px}
+.detail-amount{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;flex-shrink:0}
+.detail-actions{display:flex;gap:4px;flex-shrink:0}
+.icon-btn{width:28px;height:28px;border-radius:8px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .15s}
+.icon-btn:active{transform:scale(.9)}
+.icon-btn-edit{background:var(--blue-light);color:var(--blue)}
+.icon-btn-del{background:var(--red-light);color:var(--red)}
+.cat-tag{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--accent-light);color:var(--accent)}
+.cat-tag.empty{background:var(--border);color:var(--text3)}
+.keyword-rule{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)}
+.keyword-rule:last-child{border-bottom:none}
+.keyword-text{flex:1;font-size:12px;font-weight:500}
+.keyword-cat{font-size:11px;color:var(--text3)}
+.detail-source-label{font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;font-family:'DM Mono',monospace}
+.src-rakuten{background:#fde;color:#c00}
+.src-smbc{background:var(--mint-light);color:var(--mint)}
+.src-paypay{background:#fde;color:#c00}
+.src-bank{background:var(--blue-light);color:var(--blue)}
+.src-cash{background:var(--purple-light);color:var(--purple)}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">🌸 おかねノート</div>
+  <div class="header-date" id="header-date">2026.04</div>
+</header>
+
+<!-- ═══ 概要 ═══ -->
+<div class="screen active" id="screen-summary">
+<div class="container">
+  <div style="margin-bottom:16px">
+    <div class="screen-title">今月の概要</div>
+    <div class="screen-sub">MONTHLY SUMMARY</div>
+  </div>
+  <div class="period-selector">
+    <select class="period-select" id="sum-year" onchange="updatePeriod()">
+      <option>2024</option><option>2025</option><option selected>2026</option><option>2027</option>
+    </select>
+    <span class="period-label">年</span>
+    <select class="period-select" id="sum-month" onchange="updatePeriod()">
+      <option>1</option><option>2</option><option>3</option><option selected>4</option>
+      <option>5</option><option>6</option><option>7</option><option>8</option>
+      <option>9</option><option>10</option><option>11</option><option>12</option>
+    </select>
+    <span class="period-label">月</span>
+  </div>
+
+  <div class="card" style="background:linear-gradient(135deg,#fff5f0,#ffffff);border-color:#fdd8c8">
+    <div class="card-label" id="sum-period-label">2026年4月の収支</div>
+    <!-- 収支サマリー -->
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <div style="flex:1;text-align:center">
+        <div style="font-size:9px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:3px">収入</div>
+        <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--mint)" id="sum-income">¥0</div>
+      </div>
+      <div style="flex:1;text-align:center">
+        <div style="font-size:9px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:3px">支出</div>
+        <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--accent)" id="sum-total">¥0</div>
+      </div>
+      <div style="flex:1;text-align:center">
+        <div style="font-size:9px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:3px">収支</div>
+        <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500" id="sum-balance">¥0</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3)">前月比支出 <span id="sum-diff" style="font-weight:700">—</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">支出内訳</div>
+    <div class="list-item"><div class="list-left"><div class="list-dot" style="background:#e0445a"></div><div><div class="list-name">楽天カード</div><div class="list-sub">引落日：翌月27日</div></div></div><div class="list-amount" id="sum-rakuten">¥0</div></div>
+    <div class="list-item"><div class="list-left"><div class="list-dot" style="background:var(--mint)"></div><div><div class="list-name">三井住友カード</div><div class="list-sub">引落日：翌月10日</div></div></div><div class="list-amount" id="sum-smbc">¥0</div></div>
+    <div class="list-item"><div class="list-left"><div class="list-dot" style="background:var(--red)"></div><div><div class="list-name">PayPay<span class="paypay-note">利用日</span></div><div class="list-sub">利用日で記録</div></div></div><div class="list-amount" id="sum-paypay">¥0</div></div>
+    <div class="list-item"><div class="list-left"><div class="list-dot" style="background:var(--purple)"></div><div><div class="list-name">現金</div><div class="list-sub">手入力</div></div></div><div class="list-amount" id="sum-cash">¥0</div></div>
+    <div class="list-item"><div class="list-left"><div class="list-dot" style="background:var(--blue)"></div><div><div class="list-name">楽天銀行（出金）</div><div class="list-sub">CSV取込</div></div></div><div class="list-amount" id="sum-bank">¥0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">カテゴリ別</div>
+    <div id="sum-category-bars"><div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">データを取り込むとここに表示されます</div></div>
+  </div>
+
+  <!-- 資産推移 -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="card-label" style="margin-bottom:0">資産推移（合計）</div>
+      <select class="period-select" style="font-size:11px;padding:4px 10px" id="trend-year" onchange="onTrendYearChange()">
+      </select>
+    </div>
+    <div class="trend-area" id="trend-area"></div>
+    <div class="trend-legend">
+      <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--blue)"></div>銀行</div>
+      <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--purple)"></div>証券</div>
+      <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--accent)"></div>現金</div>
+    </div>
+    <table class="asset-table">
+      <thead><tr><th>月</th><th style="text-align:right">銀行</th><th style="text-align:right">証券</th><th style="text-align:right">現金</th><th style="text-align:right">合計</th></tr></thead>
+      <tbody id="trend-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- 証券利益率推移 -->
+  <div class="card" style="border-color:#e8dcf8">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div class="card-label" style="margin-bottom:0">📈 証券利益率の推移</div>
+      <select class="period-select" style="font-size:11px;padding:4px 10px" id="rate-year" onchange="renderRateChart()">
+        <option>2024</option><option>2025</option><option selected>2026</option>
+      </select>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-bottom:14px">損益 ÷ 累計入金額 × 100</div>
+    <div class="rate-chart">
+      <div style="position:relative;height:130px" id="rate-chart-wrap">
+        <div class="rate-bars" id="rate-bars"></div>
+      </div>
+      <div style="display:flex;margin-top:4px" id="rate-labels"></div>
+    </div>
+    <table class="asset-table" style="margin-top:14px">
+      <thead><tr><th>月</th><th style="text-align:right">累計入金額</th><th style="text-align:right">累計損益</th><th style="text-align:right">利益率</th></tr></thead>
+      <tbody id="rate-tbody"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<!-- ═══ 明細取込 ═══ -->
+<div class="screen" id="screen-upload">
+<div class="container">
+  <div style="margin-bottom:16px">
+    <div class="screen-title">明細取込</div>
+    <div class="screen-sub">CSV UPLOAD</div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">取込先を選択</label>
+    <select class="form-input" id="card-select" onchange="showCardNote()">
+      <option value="">— 選択してください —</option>
+      <option value="rakuten">🔴 楽天カード（引落：翌月27日）</option>
+      <option value="smbc">🟢 三井住友カード（引落：翌月10日）</option>
+      <option value="paypay">🔴 PayPay（取引日で記録）</option>
+      <option value="bank">🔵 楽天銀行（出金明細）</option>
+    </select>
+  </div>
+  <div id="paypay-note" style="display:none;background:var(--red-light);border:1.5px solid rgba(224,90,90,.25);border-radius:12px;padding:11px 14px;margin-bottom:12px;font-size:12px;color:var(--red);font-weight:500">
+    📅 PayPayはCSVの<strong>取引日</strong>をそのまま使用します。NumbersからCSV書き出しに対応しています。チャージは自動で除外されます。
+  </div>
+  <div class="dup-warning" id="dup-warning">⚠️ このファイルはすでに取込済みの可能性があります（同じファイル名を検出）。重複しないようご確認ください。</div>
+  <div class="upload-area" onclick="onUploadAreaClick(event)">
+    <div class="upload-icon">📂</div>
+    <div class="upload-text">CSVファイルをタップして選択</div>
+    <div class="upload-hint">各サービスのマイページからダウンロードしたCSV</div>
+    <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="handleCSVReal(this)">
+  </div>
+  <div class="card" id="csv-preview" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-label" style="margin-bottom:0">取込プレビュー</div>
+      <span class="badge badge-mint" id="preview-count-badge">0件</span>
+    </div>
+
+    <!-- 明細月の指定 -->
+    <div style="background:var(--accent-light);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+      <div class="form-label" style="margin-bottom:8px">📅 この明細は何月分ですか？</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <select class="period-select" id="import-year" style="font-size:13px;padding:7px 12px"></select>
+        <span class="period-label">年</span>
+        <select class="period-select" id="import-month" style="font-size:13px;padding:7px 12px"></select>
+        <span class="period-label">月分</span>
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:var(--text2)" id="import-month-note">
+        ※ この月として概要・集計に登録されます
+      </div>
+    </div>
+
+    <table class="preview-table">
+      <thead><tr><th id="preview-date-header">引落日</th><th>店名</th><th style="text-align:right">金額</th></tr></thead>
+      <tbody id="preview-tbody">
+      </tbody>
+    </table>
+    <div class="scroll-hint" id="preview-more" style="display:none"></div>
+    <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border);margin-bottom:14px">
+      <span style="font-size:11px;color:var(--text3)">合計</span>
+      <span style="font-family:'DM Mono',monospace;font-size:14px;color:var(--accent);font-weight:700" id="preview-total">¥0</span>
+    </div>
+    <button class="btn btn-primary" onclick="importCSVToGAS()">📥 取込を実行する</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══ 手動入力 ═══ -->
+<div class="screen" id="screen-cash">
+<div class="container">
+  <div style="margin-bottom:16px">
+    <div class="screen-title">手動入力</div>
+    <div class="screen-sub">MANUAL ENTRY</div>
+  </div>
+
+  <!-- 収入・支出トグル -->
+  <div class="sign-toggle" style="margin-bottom:16px">
+    <button class="sign-btn active-pos" id="entry-income-btn" onclick="setEntryMode('income')">＋ 収入</button>
+    <button class="sign-btn" id="entry-expense-btn" onclick="setEntryMode('expense')">－ 支出</button>
+  </div>
+
+  <div class="card">
+    <div class="form-group"><label class="form-label">日付</label><input type="date" class="form-input" id="cash-date"></div>
+    <div class="form-group" id="entry-cat-group">
+      <label class="form-label">カテゴリ</label>
+      <select class="form-input" id="cash-cat"><option value="">— 選択してください —</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">内容・メモ</label><input type="text" class="form-input" placeholder="" id="cash-shop"></div>
+    <div class="form-group" style="margin-bottom:0"><label class="form-label">金額（円）</label><input type="number" class="form-input" placeholder="0" id="cash-amount" inputmode="numeric"></div>
+  </div>
+  <button class="btn btn-primary" id="entry-submit-btn" onclick="submitEntryToGAS()">💾 登録する</button>
+
+  <div class="divider"></div>
+  <div class="card-label" style="margin-bottom:10px">今月の記録</div>
+  <div class="card" id="cash-list">
+    <div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">登録するとここに表示されます</div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ 資産照合 ═══ -->
+<div class="screen" id="screen-reconcile">
+<div class="container">
+  <div style="margin-bottom:16px">
+    <div class="screen-title">資産照合</div>
+    <div class="screen-sub">ASSETS & RECONCILIATION</div>
+  </div>
+  <div class="period-selector">
+    <select class="period-select" id="rec-year" onchange="onRecPeriodChange()"><option>2024</option><option>2025</option><option selected>2026</option><option>2027</option></select>
+    <span class="period-label">年</span>
+    <select class="period-select" id="rec-month" onchange="onRecPeriodChange()">
+      <option>1</option><option>2</option><option>3</option><option selected>4</option>
+      <option>5</option><option>6</option><option>7</option><option>8</option>
+      <option>9</option><option>10</option><option>11</option><option>12</option>
+    </select>
+    <span class="period-label">月</span>
+    <div class="reconcile-status status-open" id="rec-status">⏳ 照合待ち</div>
+  </div>
+
+  <!-- 総資産サマリー -->
+  <div class="card" style="background:linear-gradient(135deg,#f0f8ff,#ffffff);border-color:#cce4f8">
+    <div class="card-label" id="rec-period-label">総資産</div>
+    <div class="big-num" style="color:var(--blue)" id="rec-total">¥—<span class="unit">円</span></div>
+    <div style="margin-top:6px;font-size:11px;color:var(--text3)">前月比 <span id="rec-diff" style="font-weight:700;color:var(--text3)">—</span></div>
+
+    <!-- 内訳 -->
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;display:flex;gap:10px">
+      <!-- 純資産 -->
+      <div style="flex:1;background:var(--blue-light);border-radius:10px;padding:10px 12px">
+        <div style="font-size:9px;color:var(--blue);font-family:'DM Mono',monospace;letter-spacing:.1em;margin-bottom:4px">SAFE ASSETS</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--blue)" id="rec-safe-total">¥—</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:4px">純資産</div>
+        <div style="margin-top:6px;font-size:9px;color:var(--text3);line-height:1.8" id="rec-safe-detail">—</div>
+      </div>
+      <!-- リスク資産 -->
+      <div style="flex:1;background:var(--purple-light);border-radius:10px;padding:10px 12px">
+        <div style="font-size:9px;color:var(--purple);font-family:'DM Mono',monospace;letter-spacing:.1em;margin-bottom:4px">RISK ASSETS</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--purple)" id="rec-risk-total">¥—</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:4px">リスク資産（評価額）</div>
+        <div style="margin-top:6px;font-size:9px;line-height:1.8" id="rec-risk-detail">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 一括入力フォーム -->
+  <div class="card-label" style="margin-bottom:8px">残高を入力してまとめて登録</div>
+  <div style="font-size:11px;color:var(--text3);margin-bottom:12px">全口座の残高を入力してから「登録する」を押してください</div>
+
+  <div class="card" id="rec-input-card">
+    <!-- 動的に生成 -->
+  </div>
+
+  <!-- 口座追加 -->
+  <button class="btn btn-outline" style="font-size:12px;padding:10px;margin-bottom:14px" onclick="openAddAccountModal()">➕ 口座・資産を追加</button>
+
+  <!-- 一括登録ボタン -->
+  <button class="btn btn-primary" onclick="submitAllBalances()" style="margin-bottom:10px">💾 まとめて登録する</button>
+
+  <div class="divider"></div>
+
+  <!-- ── 収支照合セクション ── -->
+  <div class="card-label" style="margin-bottom:6px">収支照合</div>
+  <div style="font-size:11px;color:var(--text3);margin-bottom:12px">純資産の増減と家計簿の利用額が一致するか確認します。まとめて登録してから実行してください。</div>
+
+  <div class="card" id="reconcile-result" style="display:none">
+    <!-- 動的に生成 -->
+  </div>
+
+  <button class="btn btn-outline" onclick="runReconcile()" style="margin-bottom:10px">🔍 照合を実行する</button>
+</div>
+</div>
+
+<!-- ═══ 明細 ═══ -->
+<div class="screen" id="screen-details">
+<div class="container">
+  <div style="margin-bottom:16px">
+    <div class="screen-title">明細</div>
+    <div class="screen-sub">TRANSACTIONS</div>
+  </div>
+
+  <!-- 期間・カード絞り込み -->
+  <div class="period-selector" style="margin-bottom:10px">
+    <select class="period-select" id="det-year" onchange="loadDetails()">
+      <option>2024</option><option>2025</option><option selected>2026</option><option>2027</option>
+    </select>
+    <span class="period-label">年</span>
+    <select class="period-select" id="det-month" onchange="loadDetails()">
+      <option>1</option><option>2</option><option>3</option><option selected>4</option>
+      <option>5</option><option>6</option><option>7</option><option>8</option>
+      <option>9</option><option>10</option><option>11</option><option>12</option>
+    </select>
+    <span class="period-label">月</span>
+  </div>
+  <div class="detail-filter" id="det-filter">
+    <button class="filter-chip active" data-src="all" onclick="setDetailFilter('all',this)">すべて</button>
+    <button class="filter-chip" data-src="rakuten" onclick="setDetailFilter('rakuten',this)">楽天</button>
+    <button class="filter-chip" data-src="smbc" onclick="setDetailFilter('smbc',this)">三井住友</button>
+    <button class="filter-chip" data-src="paypay" onclick="setDetailFilter('paypay',this)">PayPay</button>
+    <button class="filter-chip" data-src="bank" onclick="setDetailFilter('bank',this)">楽天銀行</button>
+    <button class="filter-chip" data-src="cash" onclick="setDetailFilter('cash',this)">現金</button>
+  </div>
+
+  <!-- 自動分類ボタン -->
+  <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+    <button class="btn btn-outline btn-sm" onclick="openKeywordModal()" style="flex:1">🏷 キーワード自動分類</button>
+    <button class="btn btn-sm" style="background:var(--accent-light);color:var(--accent);border:1.5px solid var(--accent);flex:1" onclick="runAutoClassify()">▶ 分類を実行</button>
+  </div>
+
+  <!-- 件数・合計 -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <span style="font-size:11px;color:var(--text3)" id="det-count">0件</span>
+    <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--accent)" id="det-total">¥0</span>
+  </div>
+
+  <div class="card" id="det-list" style="padding:0 16px">
+    <div style="text-align:center;padding:24px;color:var(--text3);font-size:12px">データを読み込み中…</div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ 設定 ═══ -->
+<div class="screen" id="screen-settings">
+<div class="container">
+  <div style="margin-bottom:16px">
+    <div class="screen-title">設定</div>
+    <div class="screen-sub">SETTINGS</div>
+  </div>
+  <div class="card-label" style="margin-bottom:10px">カード引落日</div>
+  <div class="card">
+    <div class="setting-row"><div><div class="setting-label">🔴 楽天カード</div><div class="setting-sub">締め日：毎月末</div></div><div class="setting-value" onclick="openDayModal('楽天カード','27')">翌月 27日</div></div>
+    <div class="setting-row"><div><div class="setting-label">🟢 三井住友カード</div><div class="setting-sub">締め日：毎月15日</div></div><div class="setting-value" onclick="openDayModal('三井住友カード','10')">翌月 10日</div></div>
+    <div class="setting-row"><div><div class="setting-label">🔴 PayPay <span class="paypay-note">利用日</span></div><div class="setting-sub">CSVの利用日をそのまま使用</div></div><div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">引落日なし</div></div>
+  </div>
+  <div style="margin-top:16px"></div>
+  <div class="card-label" style="margin-bottom:10px">カテゴリ管理</div>
+  <div class="card">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">× をタップして削除できます</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;padding:4px 0" id="cat-list"></div>
+    <div style="margin-top:12px"><button class="btn btn-outline" style="font-size:12px;padding:10px" onclick="openAddCatModal()">＋ カテゴリを追加</button></div>
+  </div>
+  <div style="margin-top:16px"></div>
+  <div class="card-label" style="margin-bottom:10px">取込設定</div>
+  <div class="card">
+    <div class="setting-row">
+      <div><div class="setting-label">同一CSVの重複チェック</div><div class="setting-sub">ファイル名で取込済みを検出</div></div>
+      <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+    </div>
+  </div>
+  <div style="margin-top:16px"></div>
+  <div class="card-label" style="margin-bottom:10px">スプレッドシート連携</div>
+  <div class="card">
+    <div class="setting-row"><div><div class="setting-label">スプレッドシートID</div><div class="setting-sub">連携先のGoogleスプレッドシート</div></div><div class="setting-value" style="font-size:10px" onclick="openGasUrlModal()" id="gas-url-status">未設定</div></div>
+    <div style="margin-top:12px"><button class="btn btn-mint btn-sm" onclick="openGasUrlModal()">URL設定・接続テスト</button></div>
+  </div>
+  <div style="margin-top:16px"></div>
+  <div class="card-label" style="margin-bottom:10px">過去データのインポート</div>
+  <div class="card">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">資産残高の過去データをCSVまたはTSV形式で貼り付けてインポートできます。同じ月のデータが既にある場合はスキップされます。</div>
+    <div style="font-size:10px;color:var(--text3);margin-bottom:8px;font-family:'DM Mono',monospace">列順：日付 | 現金 | ゆうちょ | 楽天 | PayPay | 累計投資額 | 損益 | 利率 | 総資産 | 先月との差</div>
+    <textarea id="import-asset-text" class="form-input" rows="6" style="font-family:'DM Mono',monospace;font-size:11px;resize:vertical" placeholder="2021/3/23&#9;116452&#9;0&#9;1616009&#9;0&#9;0&#9;0&#9;0&#9;1732461&#9;0"></textarea>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button class="btn btn-outline btn-sm" onclick="previewAssetImport()">プレビュー</button>
+      <button class="btn btn-primary btn-sm" id="asset-import-btn" onclick="executeAssetImport()" disabled>インポート実行</button>
+    </div>
+    <div id="asset-import-preview" style="margin-top:10px;display:none"></div>
+  </div>
+</div>
+</div>
+
+<nav class="nav">
+  <button class="nav-item active" onclick="switchScreen('summary',this)"><div class="nav-icon">🏠</div>概要</button>
+  <button class="nav-item" onclick="switchScreen('upload',this)"><div class="nav-icon">📂</div>明細取込</button>
+  <button class="nav-item" onclick="switchScreen('cash',this);initEntryScreen()"><div class="nav-icon">✏️</div>手動入力</button>
+  <button class="nav-item" onclick="switchScreen('details',this);loadDetails()"><div class="nav-icon">📋</div>明細</button>
+  <button class="nav-item" onclick="switchScreen('reconcile',this);loadLatestAsset()"><div class="nav-icon">📊</div>資産照合</button>
+  <button class="nav-item" onclick="switchScreen('settings',this)"><div class="nav-icon">⚙️</div>設定</button>
+</nav>
+
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title"></div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 収支カテゴリ定義（先頭で定義）──
+const INCOME_CATEGORIES = ['給与','ボーナス','副業','臨時収入','その他収入'];
+let entryMode = 'income'; // 'income' | 'expense'
+
+// ── 口座管理（一括入力・一括登録）──
+
+const DEFAULT_ACCOUNTS = [
+  { id: 'bank', name: '楽天銀行', type: 'bank', icon: '🏦', color: 'var(--blue)',   isDefault: true },
+  { id: 'cash', name: '現金残高', type: 'cash', icon: '💴', color: 'var(--accent)', isDefault: true },
+];
+
+let customAccounts = JSON.parse(localStorage.getItem('custom_accounts') || '[]');
+
+function saveCustomAccounts() {
+  localStorage.setItem('custom_accounts', JSON.stringify(customAccounts));
+}
+
+const TYPE_CONFIG = {
+  bank:  { icon: '🏦', color: 'var(--blue)',   label: '銀行' },
+  sec:   { icon: '📈', color: 'var(--purple)', label: '証券' },
+  cash:  { icon: '💴', color: 'var(--accent)', label: '現金' },
+  other: { icon: '📦', color: 'var(--text2)',  label: 'その他' },
+};
+
+// 入力フォームを描画
+function renderRecInputCard() {
+  const card = document.getElementById('rec-input-card');
+  if (!card) return;
+
+  const fields = [
+    { id: 'cash',        icon: '💴', name: '現金',        color: 'var(--accent)',  type: '現金' },
+    { id: 'yucho',       icon: '🏦', name: 'ゆうちょ銀行', color: 'var(--blue)',   type: '銀行' },
+    { id: 'rakuten',     icon: '🏦', name: '楽天銀行',     color: 'var(--blue)',   type: '銀行' },
+    { id: 'paypay',      icon: '💳', name: 'PayPay残高',   color: 'var(--red)',    type: '電子マネー' },
+  ];
+
+  let html = fields.map(f => `
+    <div class="list-item" style="padding:12px 0">
+      <div class="list-left" style="gap:12px">
+        <span style="font-size:20px">${f.icon}</span>
+        <div>
+          <div class="list-name">${f.name}</div>
+          <div class="list-sub" style="color:${f.color}">${f.type}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:12px;color:var(--text3)">¥</span>
+        <input type="number" inputmode="numeric"
+          id="rec-input-${f.id}"
+          class="form-input" style="width:130px;text-align:right;padding:8px 10px;font-family:'DM Mono',monospace"
+          placeholder="0">
+      </div>
+    </div>`).join('');
+
+  // 証券口座（今月の入金額・利益額）
+  html += `
+    <div class="list-item" style="padding:14px 0;flex-direction:column;align-items:stretch;gap:10px">
+      <div class="list-left" style="gap:12px">
+        <span style="font-size:20px">📈</span>
+        <div>
+          <div class="list-name">証券口座</div>
+          <div class="list-sub" style="color:var(--purple)">証券</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;padding-left:36px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:11px;color:var(--text3)">今月の入金額</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px;color:var(--text3)">¥</span>
+            <input type="number" inputmode="numeric"
+              id="rec-input-invest"
+              class="form-input" style="width:130px;text-align:right;padding:8px 10px;font-family:'DM Mono',monospace"
+              placeholder="0">
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:11px;color:var(--text3)">今の利益額（マイナス可）</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px;color:var(--text3)">¥</span>
+            <input type="number" inputmode="numeric"
+              id="rec-input-sec-value"
+              class="form-input" style="width:130px;text-align:right;padding:8px 10px;font-family:'DM Mono',monospace"
+              placeholder="0">
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">リスク資産 ＝ 累計投資額 ＋ 利益額　累計はGAS側で自動集計</div>
+      </div>
+    </div>`;
+
+  // カスタム口座
+  customAccounts.forEach((acc, idx) => {
+    const cfg = TYPE_CONFIG[acc.type] || TYPE_CONFIG.other;
+    html += `
+      <div class="list-item" style="padding:12px 0">
+        <div class="list-left" style="gap:12px;flex:1;min-width:0">
+          <span style="font-size:20px">${cfg.icon}</span>
+          <div style="min-width:0">
+            <div class="list-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${acc.name}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+              <span class="list-sub" style="color:${cfg.color}">${cfg.label}</span>
+              <button onclick="deleteCustomAccount(${idx})" style="font-size:10px;color:var(--red);background:none;border:none;cursor:pointer;padding:0">削除</button>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <span style="font-size:12px;color:var(--text3)">¥</span>
+          <input type="number" inputmode="numeric"
+            id="rec-input-custom-${acc.id}"
+            class="form-input" style="width:130px;text-align:right;padding:8px 10px;font-family:'DM Mono',monospace"
+            placeholder="0">
+        </div>
+      </div>`;
+  });
+
+  card.innerHTML = html;
+}
+
+// 入力値からリアルタイム合計を計算
+function calcRecTotal() {
+  let total = 0;
+
+  DEFAULT_ACCOUNTS.forEach(acc => {
+    const val = parseInt(document.getElementById(`rec-input-${acc.id}`)?.value) || 0;
+    total += val;
+  });
+
+  // 証券：損益のみ（入金額は設定から別途取得するが、ここでは損益額だけ加算）
+  const secPnl = parseInt(document.getElementById('rec-input-sec')?.value) || 0;
+  total += secPnl;
+
+  customAccounts.forEach(acc => {
+    const val = parseInt(document.getElementById(`rec-input-custom-${acc.id}`)?.value) || 0;
+    total += val;
+  });
+
+  const el = document.getElementById('rec-total');
+  if (el) el.innerHTML = '¥' + total.toLocaleString() + '<span class="unit">円</span>';
+}
+
+function deleteCustomAccount(idx) {
+  const acc = customAccounts[idx];
+  if (!acc || !confirm(`「${acc.name}」を削除しますか？`)) return;
+  customAccounts.splice(idx, 1);
+  saveCustomAccounts();
+  renderRecInputCard();
+  showToast('口座を削除しました', true);
+}
+
+// 一括登録
+async function submitAllBalances() {
+  const yearMonth = getCurrentYearMonth('rec');
+  const year  = parseInt(document.getElementById('rec-year').value);
+  const month = parseInt(document.getElementById('rec-month').value);
+
+  const cash         = parseInt(document.getElementById('rec-input-cash')?.value)          || 0;
+  const yucho        = parseInt(document.getElementById('rec-input-yucho')?.value)         || 0;
+  const rakuten      = parseInt(document.getElementById('rec-input-rakuten')?.value)       || 0;
+  const paypay       = parseInt(document.getElementById('rec-input-paypay')?.value)        || 0;
+  const monthlyInvest= parseInt(document.getElementById('rec-input-invest')?.value)        || 0;
+  const secValue     = parseInt(document.getElementById('rec-input-sec-value')?.value)     || 0;
+
+  const customData = customAccounts.map(acc => ({
+    id: acc.id, name: acc.name, type: acc.type,
+    balance: parseInt(document.getElementById(`rec-input-custom-${acc.id}`)?.value) || 0
+  }));
+
+  if (!GAS_URL) {
+    showToast(`✅ ${yearMonth} の残高を登録しました（ローカル）`);
+    return;
+  }
+
+  // ── ボタンを無効化 ──
+  const btn = document.querySelector('button[onclick="submitAllBalances()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 送信中…'; }
+
+  // ── 1回のGASコールで全口座をまとめて送信 ──
+  const res = await callGAS('updateAllBalances', {
+    yearMonth, cash, yucho, rakuten, paypay, monthlyInvest, secValue,
+    customAccounts: customData
+  });
+
+  if (btn) { btn.disabled = false; btn.textContent = '💾 まとめて登録する'; }
+
+  if (res?.ok) {
+    showToast(`✅ ${yearMonth} の残高をすべて登録しました`);
+    await loadLatestAsset();
+  } else {
+    showToast('⚠ 登録に失敗しました: ' + (res?.error || '不明'), true);
+  }
+}
+
+async function onRecPeriodChange() {
+  const year  = parseInt(document.getElementById('rec-year').value);
+  const month = parseInt(document.getElementById('rec-month').value);
+  document.getElementById('rec-period-label').textContent = `総資産（${year}年${month}月）`;
+  await loadLatestAsset();
+}
+
+function updateRecTotal() { onRecPeriodChange(); }
+
+// GASから資産残高シートの指定年月のデータを取得して表示
+async function loadLatestAsset() {
+  const year  = parseInt(document.getElementById('rec-year').value);
+  const month = parseInt(document.getElementById('rec-month').value);
+  const yearMonth = `${year}/${String(month).padStart(2,'0')}`;
+
+  document.getElementById('rec-period-label').textContent = `総資産（${year}年${month}月）`;
+
+  if (!GAS_URL) {
+    document.getElementById('rec-total').innerHTML = '¥—<span class="unit">円</span>';
+    document.getElementById('rec-diff').textContent = '—';
+    document.getElementById('rec-diff').style.color = 'var(--text3)';
+    return;
+  }
+
+  // 読込中表示
+  document.getElementById('rec-total').innerHTML = '<span style="font-size:16px;color:var(--text3)">読込中…</span>';
+
+  const data = await callGAS('getLatestAsset', { yearMonth });
+  console.log('[loadLatestAsset] yearMonth:', yearMonth, '→ response:', JSON.stringify(data));
+  if (!data?.ok) {
+    document.getElementById('rec-total').innerHTML = '¥—<span class="unit">円</span>';
+    return;
+  }
+
+  // 総資産表示
+  const total = data.total || 0;
+  document.getElementById('rec-total').innerHTML = '¥' + total.toLocaleString() + '<span class="unit">円</span>';
+
+  // 純資産内訳
+  const safe     = data.safeTotal  || 0;
+  const risk     = data.riskTotal  || 0;
+  const cumInvest= data.cumInvest  || 0;
+  const pnl      = data.pnl        || 0;
+
+  const safeEl = document.getElementById('rec-safe-total');
+  const riskEl = document.getElementById('rec-risk-total');
+  if (safeEl) safeEl.textContent = '¥' + safe.toLocaleString();
+  if (riskEl) riskEl.textContent = '¥' + risk.toLocaleString();
+
+  const safeDetail = document.getElementById('rec-safe-detail');
+  if (safeDetail) safeDetail.innerHTML = [
+    data.cash    ? `現金　¥${data.cash.toLocaleString()}`     : '',
+    data.yucho   ? `ゆうちょ　¥${data.yucho.toLocaleString()}` : '',
+    data.rakuten ? `楽天銀行　¥${data.rakuten.toLocaleString()}`: '',
+    data.paypay  ? `PayPay　¥${data.paypay.toLocaleString()}`  : '',
+  ].filter(Boolean).join('<br>') || '—';
+
+  const riskDetail = document.getElementById('rec-risk-detail');
+  if (riskDetail) {
+    const pnlColor = pnl >= 0 ? 'var(--mint)' : 'var(--red)';
+    const pnlSign  = pnl >= 0 ? '＋' : '－';
+    riskDetail.innerHTML =
+      `累計投資額　¥${cumInvest.toLocaleString()}<br>` +
+      `<span style="color:${pnlColor}">利益額　${pnlSign}¥${Math.abs(pnl).toLocaleString()}</span>`;
+  }
+
+  // 各口座の残高を入力欄にセット（未入力の場合のみ）
+  const setIfEmpty = (id, val) => {
+    const el = document.getElementById(id);
+    if (el && !el.value && val) el.value = val;
+  };
+  setIfEmpty('rec-input-cash',      data.cash);
+  setIfEmpty('rec-input-yucho',     data.yucho);
+  setIfEmpty('rec-input-rakuten',   data.rakuten);
+  setIfEmpty('rec-input-paypay',    data.paypay);
+  setIfEmpty('rec-input-invest',    data.monthlyInvest);
+  setIfEmpty('rec-input-sec-value', data.pnl);  // 「今の利益額」欄に損益をセット
+
+  // 前月比
+  const diffEl = document.getElementById('rec-diff');
+  const prevTotal = data.prevTotal;
+  if (prevTotal != null && prevTotal > 0) {
+    const diff = total - prevTotal;
+    if (diff > 0) {
+      diffEl.textContent = `＋ ¥${diff.toLocaleString()}`;
+      diffEl.style.color = 'var(--mint)';
+    } else if (diff < 0) {
+      diffEl.textContent = `▼ ¥${Math.abs(diff).toLocaleString()}`;
+      diffEl.style.color = 'var(--red)';
+    } else {
+      diffEl.textContent = '± ¥0';
+      diffEl.style.color = 'var(--text3)';
+    }
+  } else {
+    diffEl.textContent = '—';
+    diffEl.style.color = 'var(--text3)';
+  }
+}
+
+// 概要
+const CHIP_COLORS=['','chip-mint','chip-blue','chip-pink','chip-purple','','chip-mint','chip-blue','chip-pink','chip-purple'];
+let categories=['食費','交通費','日用品','趣味・娯楽','医療・健康','衣類','水道光熱費','通信費','保険','その他'];
+function renderCategories(){
+  const list=document.getElementById('cat-list');
+  list.innerHTML='';
+  categories.forEach((cat,i)=>{
+    const s=document.createElement('span');
+    s.className='chip '+CHIP_COLORS[i%CHIP_COLORS.length];
+    s.innerHTML=`${cat}<button class="chip-del" onclick="deleteCategory(${i})">×</button>`;
+    list.appendChild(s);
+  });
+  // 手動入力画面のカテゴリも再描画（支出モードのときのみ）
+  if (typeof entryMode !== 'undefined' && entryMode === 'expense') renderEntryCategorySelect();
+}
+function deleteCategory(i){
+  if(!confirm(`「${categories[i]}」を削除しますか？`))return;
+  const cat=categories.splice(i,1)[0];
+  renderCategories();showToast(`「${cat}」を削除しました`,true);
+}
+function openAddCatModal(){openModal('カテゴリを追加',`<div class="form-group"><label class="form-label">カテゴリ名</label><input type="text" class="form-input" placeholder="例：外食、ジム代など" id="new-cat-input"></div><button class="btn btn-primary" onclick="addCategory()">追加する</button>`);}
+function addCategory(){const val=document.getElementById('new-cat-input')?.value.trim();if(!val)return;categories.push(val);renderCategories();closeModal();showToast(`「${val}」を追加しました`);}
+
+// ── ローカルデータストア ──
+// 取込・入力したデータをメモリ上に保持する
+const localStore = {
+  rakuten: [],  // { date, shop, amount, category }
+  smbc:    [],
+  paypay:  [],
+  bank:    [],  // { date, shop, withdrawal, deposit, category }
+  cash:    [],  // { date, shop, amount, category }
+};
+
+// CSV取込完了時にストアへ追加
+function storeImportedRows(cardType, rows) {
+  if (cardType === 'rakuten') localStore.rakuten.push(...rows);
+  else if (cardType === 'smbc') localStore.smbc.push(...rows);
+  else if (cardType === 'paypay') localStore.paypay.push(...rows);
+  else if (cardType === 'bank') localStore.bank.push(...rows);
+}
+
+// 現金入力をストアへ追加
+function storeCashEntry(date, shop, amount, category) {
+  localStore.cash.push({ date, shop, amount, category });
+}
+
+// ── ローカル集計エンジン ──
+function calcLocalSummary(year, month) {
+  const ym = `${year}/${String(month).padStart(2, '0')}`;
+
+  function sumRows(rows, amtKey = 'amount') {
+    return rows.filter(r => String(r.date).startsWith(ym))
+               .reduce((s, r) => s + (Number(r[amtKey]) || 0), 0);
+  }
+  function catTotals(rows, amtKey = 'amount') {
+    const map = {};
+    rows.filter(r => String(r.date).startsWith(ym)).forEach(r => {
+      const cat = r.category || 'その他';
+      map[cat] = (map[cat] || 0) + (Number(r[amtKey]) || 0);
+    });
+    return map;
+  }
+
+  const rakuten = sumRows(localStore.rakuten);
+  const smbc    = sumRows(localStore.smbc);
+  const paypay  = sumRows(localStore.paypay);
+  const bank    = sumRows(localStore.bank, 'withdrawal');
+  const cash    = sumRows(localStore.cash);
+  const grand   = rakuten + smbc + paypay + bank + cash;
+
+  // カテゴリ集計（全ソース合算）
+  const cats = {};
+  [
+    catTotals(localStore.rakuten),
+    catTotals(localStore.smbc),
+    catTotals(localStore.paypay),
+    catTotals(localStore.cash),
+  ].forEach(m => Object.entries(m).forEach(([k, v]) => { cats[k] = (cats[k] || 0) + v; }));
+
+  return { rakuten, smbc, paypay, bank, cash, grand, cats };
+}
+
+// ── 年度セレクタ初期化（2021〜今年） ──
+function initYearSelectors() {
+  const currentYear = new Date().getFullYear();
+  const sel = document.getElementById('trend-year');
+  if (!sel) return;
+  sel.innerHTML = '';
+  for (let y = 2021; y <= currentYear; y++) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y;
+    if (y === currentYear) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+// 年度変更時：未取得ならGASから取得してグラフ更新
+async function onTrendYearChange() {
+  const year = parseInt(document.getElementById('trend-year').value);
+  if (GAS_URL && (!assetData[year] || Object.keys(assetData[year]).length === 0)) {
+    await refreshTrend();
+  } else {
+    renderTrend();
+  }
+}
+
+async function onRateYearChange() {
+  const year = parseInt(document.getElementById('rate-year').value);
+  if (GAS_URL && (!secData[year] || Object.keys(secData[year]).length === 0)) {
+    await refreshSecRate();
+  } else {
+    renderRateChart();
+  }
+}
+
+// ── 概要画面を更新 ──
+function refreshSummaryLocal() {
+  const year  = parseInt(document.getElementById('sum-year').value);
+  const month = parseInt(document.getElementById('sum-month').value);
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear  = month === 1 ? year - 1 : year;
+  const cur  = calcLocalSummary(year, month);
+  const prev = calcLocalSummary(prevYear, prevMonth);
+
+  const expense = cur.grand;
+  const income  = cur.income || 0;
+  const balance = income - expense;
+
+  document.getElementById('sum-total').textContent   = '¥' + expense.toLocaleString();
+  document.getElementById('sum-income').textContent  = '¥' + income.toLocaleString();
+  const balEl = document.getElementById('sum-balance');
+  balEl.textContent = (balance >= 0 ? '＋' : '－') + '¥' + Math.abs(balance).toLocaleString();
+  balEl.style.color = balance >= 0 ? 'var(--mint)' : 'var(--red)';
+
+  // 前月比（支出ベース）
+  const diffEl = document.getElementById('sum-diff');
+  const diff = expense - prev.grand;
+  if (prev.grand === 0) { diffEl.textContent = '—'; diffEl.style.color = 'var(--text3)'; }
+  else if (diff > 0)    { diffEl.textContent = `▲ ¥${diff.toLocaleString()}`;       diffEl.style.color = 'var(--red)'; }
+  else if (diff < 0)    { diffEl.textContent = `▼ ¥${Math.abs(diff).toLocaleString()}`; diffEl.style.color = 'var(--mint)'; }
+  else                  { diffEl.textContent = '± ¥0'; diffEl.style.color = 'var(--text3)'; }
+
+  // 内訳
+  document.getElementById('sum-rakuten').textContent = '¥' + cur.rakuten.toLocaleString();
+  document.getElementById('sum-smbc').textContent    = '¥' + cur.smbc.toLocaleString();
+  document.getElementById('sum-paypay').textContent  = '¥' + cur.paypay.toLocaleString();
+  document.getElementById('sum-bank').textContent    = '¥' + cur.bank.toLocaleString();
+  document.getElementById('sum-cash').textContent    = '¥' + cur.cash.toLocaleString();
+
+  // カテゴリ別バー
+  const barsEl = document.getElementById('sum-category-bars');
+  const catEntries = Object.entries(cur.cats).sort((a, b) => b[1] - a[1]);
+  if (!catEntries.length) {
+    barsEl.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">データを取り込むとここに表示されます</div>';
+    return;
+  }
+  const maxAmt = catEntries[0][1];
+  const barColors = ['var(--accent)','var(--pink)','var(--blue)','var(--mint)','var(--purple)','var(--yellow)','var(--text3)'];
+  barsEl.innerHTML = catEntries.map(([cat, amt], i) =>
+    `<div class="bar-row">
+      <div class="bar-label" style="font-size:10px;width:72px">${cat}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(amt/maxAmt*100)}%;background:${barColors[i%barColors.length]}"></div></div>
+      <div class="bar-value">¥${amt.toLocaleString()}</div>
+    </div>`
+  ).join('');
+}
+
+// ── 資産データ ──
+const assetData = {};
+
+// 証券損益データ（累計入金額・累計損益）
+const secData = {};
+
+function renderTrend(){
+  const year=parseInt(document.getElementById('trend-year').value);
+  const data=assetData[year]||{};
+  const months=Object.keys(data).map(Number).sort((a,b)=>a-b);
+  if(!months.length)return;
+  const totals=months.map(m=>data[m].bank+data[m].sec+data[m].cash);
+  const maxTotal=Math.max(...totals);
+  const now=new Date();
+  const currentMonth=(year===now.getFullYear())?now.getMonth()+1:null;
+  const area=document.getElementById('trend-area');
+  area.innerHTML='';
+  months.forEach(m=>{
+    const d=data[m];const total=d.bank+d.sec+d.cash;
+    const ratio=maxTotal>0?total/maxTotal:0;
+    const bankH=Math.round((d.bank/total)*82*ratio);
+    const secH=Math.round((d.sec/total)*82*ratio);
+    const cashH=Math.max(2,Math.round((d.cash/total)*82*ratio));
+    const isCur=m===currentMonth;const op=isCur?1:0.5;
+    const col=document.createElement('div');col.className='trend-col';
+    col.innerHTML=`<div class="trend-total-label">¥${Math.round(total/10000)}万</div><div class="trend-stack"><div class="trend-seg" style="height:${bankH}px;background:var(--blue);border-radius:3px 3px 0 0;opacity:${op}"></div><div class="trend-seg" style="height:${secH}px;background:var(--purple);opacity:${op}"></div><div class="trend-seg" style="height:${cashH}px;background:var(--accent);opacity:${op}"></div></div><div class="trend-month-label ${isCur?'current':''}">${m}月</div>`;
+    area.appendChild(col);
+  });
+  const tbody=document.getElementById('trend-tbody');tbody.innerHTML='';
+  months.forEach(m=>{
+    const d=data[m];const total=d.bank+d.sec+d.cash;
+    const isCur=m===currentMonth;
+    tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}""><td>${m}月</td><td class="num">¥${d.bank.toLocaleString()}</td><td class="num">¥${d.sec.toLocaleString()}</td><td class="num">¥${d.cash.toLocaleString()}</td><td class="num" style="color:var(--blue)">¥${total.toLocaleString()}</td></tr>`;
+  });
+}
+
+// ── 証券利益率グラフ ──
+function renderRateChart(){
+  const year=parseInt(document.getElementById('rate-year').value);
+  const data=secData[year]||{};
+  const months=Object.keys(data).map(Number).sort((a,b)=>a-b);
+  if(!months.length)return;
+  const rates=months.map(m=>{const d=data[m];return d.deposit>0?(d.pnl/d.deposit*100):0;});
+  const maxAbs=Math.max(...rates.map(r=>Math.abs(r)),1);
+  const now=new Date();
+  const currentMonth=(year===now.getFullYear())?now.getMonth()+1:null;
+  const halfH=50;
+
+  const barsEl=document.getElementById('rate-bars');
+  const labelsEl=document.getElementById('rate-labels');
+  barsEl.innerHTML='';labelsEl.innerHTML='';
+
+  // ゼロライン
+  const zeroLine=document.createElement('div');
+  zeroLine.style.cssText=`position:absolute;left:0;right:0;top:${halfH}px;height:1.5px;background:var(--border2);z-index:1`;
+  barsEl.appendChild(zeroLine);
+
+  months.forEach((m,idx)=>{
+    const rate=rates[idx];
+    const pct=(Math.abs(rate)/maxAbs)*halfH;
+    const isPos=rate>=0;
+    const isCur=m===currentMonth;
+    const col=document.createElement('div');
+    col.style.cssText=`flex:1;position:relative;height:${halfH*2}px`;
+    const barW='60%';
+    if(isPos){
+      col.innerHTML=`
+        <div style="position:absolute;bottom:${halfH}px;left:50%;transform:translateX(-50%);width:${barW};height:${pct}px;background:var(--mint);border-radius:3px 3px 0 0;min-height:${rate!==0?2:0}px;opacity:${isCur?1:0.55}"></div>
+        <div style="position:absolute;bottom:${halfH+pct+2}px;left:50%;transform:translateX(-50%);font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:var(--mint);white-space:nowrap;text-align:center">${rate>0?'+':''}${rate.toFixed(1)}%</div>`;
+    } else {
+      col.innerHTML=`
+        <div style="position:absolute;top:${halfH}px;left:50%;transform:translateX(-50%);width:${barW};height:${pct}px;background:var(--red);border-radius:0 0 3px 3px;min-height:${rate!==0?2:0}px;opacity:${isCur?1:0.55}"></div>
+        <div style="position:absolute;top:${halfH+pct+2}px;left:50%;transform:translateX(-50%);font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:var(--red);white-space:nowrap;text-align:center">${rate.toFixed(1)}%</div>`;
+    }
+    barsEl.appendChild(col);
+    const lbl=document.createElement('div');
+    lbl.style.cssText=`flex:1;text-align:center;font-size:9px;font-family:'DM Mono',monospace;color:${isCur?'var(--accent)':'var(--text3)'};font-weight:${isCur?700:400};margin-top:2px`;
+    lbl.textContent=`${m}月`;
+    labelsEl.appendChild(lbl);
+  });
+
+  // テーブル
+  const tbody=document.getElementById('rate-tbody');tbody.innerHTML='';
+  months.forEach((m,idx)=>{
+    const d=data[m];const rate=rates[idx];
+    const isCur=m===currentMonth;
+    const rateClass=rate>=0?'pos':'neg';
+    const rateStr=(rate>=0?'+':'')+rate.toFixed(2)+'%';
+    tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}">
+      <td>${m}月</td>
+      <td class="num">¥${d.deposit.toLocaleString()}</td>
+      <td class="num ${rate>=0?'pos':'neg'}">${rate>=0?'＋':''}¥${Math.abs(d.pnl).toLocaleString()}</td>
+      <td class="num ${rateClass}">${rateStr}</td></tr>`;
+  });
+}
+
+// ── 差異調整モーダル（正負対応） ──
+let adjustSign = 1; // 1=プラス, -1=マイナス
+function openAdjustModal(diffAmount){
+  adjustSign=1;
+  openModal('差異の調整',`
+    <div style="margin-bottom:14px;padding:10px 12px;background:var(--yellow-light);border-radius:10px;font-size:12px;color:#9a7a00;font-weight:700">
+      ズレ：¥${Math.abs(diffAmount).toLocaleString()} 　理論値より実残高が少ない
+    </div>
+    <div class="form-group">
+      <label class="form-label">調整の方向</label>
+      <div class="sign-toggle">
+        <button class="sign-btn active-pos" id="sign-plus" onclick="setAdjustSign(1)">＋ 支出の記録漏れ<br><span style="font-size:10px;font-weight:400">実残高を基準に合わせる</span></button>
+        <button class="sign-btn" id="sign-minus" onclick="setAdjustSign(-1)">− 収入・返金など<br><span style="font-size:10px;font-weight:400">理論値を上方修正する</span></button>
+      </div>
+    </div>
+    <div id="adjust-preview" class="adjust-preview pos">
+      理論値 ¥41,200 → 実残高 ¥38,000 に合わせて ▲¥3,200 調整
+    </div>
+    <div class="form-group">
+      <label class="form-label">調整金額（円）</label>
+      <input type="number" class="form-input" id="adjust-amount" value="${Math.abs(diffAmount)}" inputmode="numeric" oninput="updateAdjustPreview()">
+    </div>
+    <div class="form-group">
+      <label class="form-label">理由</label>
+      <select class="form-input" id="adjust-reason">
+        <option>記録漏れ（現金支出）</option>
+        <option>数え間違い</option>
+        <option>返金・収入</option>
+        <option>紛失・不明</option>
+        <option>その他</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">メモ（任意）</label><input type="text" class="form-input" placeholder="詳細があれば"></div>
+    <button class="btn btn-primary" onclick="submitAdjustGAS()">調整を記録する</button>
+  `);
+  // 初期プレビュー表示
+  setTimeout(()=>{ updateAdjustPreview(); document.getElementById('adjust-preview').style.display='block'; },50);
+}
+function setAdjustSign(sign){
+  adjustSign=sign;
+  document.getElementById('sign-plus').className='sign-btn'+(sign===1?' active-pos':'');
+  document.getElementById('sign-minus').className='sign-btn'+(sign===-1?' active-neg':'');
+  updateAdjustPreview();
+}
+function updateAdjustPreview(){
+  const el=document.getElementById('adjust-preview');
+  if(!el)return;
+  const amt=parseInt(document.getElementById('adjust-amount')?.value)||0;
+  el.style.display='block';
+  if(adjustSign===1){
+    el.className='adjust-preview pos';
+    el.textContent=`支出として ▲¥${amt.toLocaleString()} を追加記録します`;
+  } else {
+    el.className='adjust-preview neg';
+    el.textContent=`収入・返金として ＋¥${amt.toLocaleString()} を記録します`;
+  }
+}
+function submitAdjust(){
+  const amt=parseInt(document.getElementById('adjust-amount')?.value)||0;
+  const sign=adjustSign===1?'▲':'＋';
+  closeModal();
+  showToast(`${sign}¥${amt.toLocaleString()} の調整を記録しました`);
+}
+
+// ── 証券入金額 ──
+function toggleDepositEdit(){
+  const editing=document.getElementById('deposit-edit').style.display==='none';
+  document.getElementById('deposit-display').style.display=editing?'none':'flex';
+  document.getElementById('deposit-edit').style.display=editing?'block':'none';
+  if(editing){document.getElementById('deposit-input').value=document.getElementById('deposit-value').textContent.replace(/[¥,]/g,'');document.getElementById('deposit-input').focus();}
+}
+function saveDeposit(){
+  const val=parseInt(document.getElementById('deposit-input').value)||0;
+  document.getElementById('deposit-value').textContent='¥'+val.toLocaleString();
+  toggleDepositEdit();showToast('入金額を更新しました ✓');
+}
+function saveSecurities(){showToast('証券の損益を記録しました ✓');}
+
+// ── 期間 ──
+async function updatePeriod(){
+  const y=document.getElementById('sum-year').value;
+  const m=document.getElementById('sum-month').value;
+  document.getElementById('sum-period-label').textContent=`${y}年${m}月の支出合計`;
+  document.getElementById('header-date').textContent=`${y}.${String(m).padStart(2,'0')}`;
+  if (GAS_URL) {
+    await refreshSummary();
+  } else {
+    refreshSummaryLocal();
+  }
+}
+
+// ── PayPay注記 ──
+function showCardNote(){
+  const v=document.getElementById('card-select').value;
+  document.getElementById('paypay-note').style.display=v==='paypay'?'block':'none';
+  // カード選択時はプレビューを非表示のまま（CSVファイル選択後に表示）
+  document.getElementById('csv-preview').style.display='none';
+  document.getElementById('preview-date-header').textContent=v==='paypay'?'利用日':'引落日';
+  document.getElementById('preview-tbody').innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:12px">CSVファイルを選択するとここに表示されます</td></tr>';
+}
+
+// ── ナビ ──
+function switchScreen(id,btn){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active');btn.classList.add('active');}
+
+// ── Toast ──
+let _toastTimer = null;
+function showToast(msg,warn=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='toast'+(warn?' warn':'');
+  if(_toastTimer) clearTimeout(_toastTimer);
+  requestAnimationFrame(()=>t.classList.add('show'));
+  _toastTimer=setTimeout(()=>{ t.classList.remove('show'); _toastTimer=null; },2800);
+}
+
+// ── Modal ──
+function openModal(title,bodyHTML){document.getElementById('modal-title').textContent=title;document.getElementById('modal-body').innerHTML=bodyHTML;document.getElementById('modal').classList.add('open');}
+function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.remove('open');}
+
+// ── CSV ──
+const importedFiles=['rakuten_202604.csv','smbc_202604.csv'];
+function handleCSV(input){
+  if(!input.files.length)return;
+  const dup=importedFiles.includes(input.files[0].name);
+  document.getElementById('dup-warning').style.display=dup?'block':'none';
+  if(dup)showToast('⚠ 取込済みのファイルです',true);
+  document.getElementById('csv-preview').style.display='block';
+}
+function importCSVMock(){showToast('✅ スプレッドシートに取込みました');document.getElementById('csv-preview').style.display='none';}
+
+// ── 現金入力 ──
+function submitCash(){
+  const shop=document.getElementById('cash-shop').value.trim();
+  const amount=document.getElementById('cash-amount').value;
+  const cat=document.getElementById('cash-cat').value;
+  const date=document.getElementById('cash-date').value;
+  if(!shop||!amount||!cat){showToast('⚠ 全項目を入力してください',true);return;}
+  const list=document.getElementById('cash-list');
+  const item=document.createElement('div');item.className='list-item';
+  const d=date.slice(5).replace('-','/');
+  item.innerHTML=`<div class="list-left"><div><div class="list-name">${shop}</div><div class="list-sub">${d} · <span class="chip chip-plain">${cat}</span></div></div></div><div class="list-amount">¥${Number(amount).toLocaleString()}</div>`;
+  list.insertBefore(item,list.firstChild);
+  document.getElementById('cash-shop').value='';document.getElementById('cash-amount').value='';document.getElementById('cash-cat').value='';
+  showToast('✅ 現金支出を記録しました');
+}
+
+// ── モーダル各種 ──
+function openBalanceModal(label,current){openModal(label+'の残高を更新',`<div class="form-group"><label class="form-label">残高（円）</label><input type="number" class="form-input" value="${current}" inputmode="numeric"></div><button class="btn btn-primary" onclick="closeModal();showToast('残高を更新しました ✓')">更新する</button>`);}
+function openSecuritiesModal(){showToast('証券カードから損益を更新できます');}
+function openDayModal(name,current){openModal(name+'の引落日',`<div class="form-group"><label class="form-label">引落日（毎月何日）</label><input type="number" class="form-input" value="${current}" min="1" max="31" inputmode="numeric"></div><div style="margin-bottom:14px;font-size:11px;color:var(--text3)">「翌月」固定。例：27 → 翌月27日引落</div><button class="btn btn-primary" onclick="closeModal();showToast('引落日を保存しました ✓')">保存する</button>`);}
+function openAddAccountModal(){
+  openModal('口座・資産を追加',`
+    <div class="form-group">
+      <label class="form-label">口座名・資産名</label>
+      <input type="text" class="form-input" id="new-acc-name" placeholder="例：SBI証券、ゆうちょ銀行">
+    </div>
+    <div class="form-group">
+      <label class="form-label">種別</label>
+      <select class="form-input" id="new-acc-type">
+        <option value="bank">🏦 銀行</option>
+        <option value="sec">📈 証券</option>
+        <option value="cash">💴 現金</option>
+        <option value="other">📦 その他</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">現在の残高（円）</label>
+      <input type="number" class="form-input" id="new-acc-balance" placeholder="0" inputmode="numeric">
+    </div>
+    <button class="btn btn-primary" onclick="submitAddAccount()">追加する</button>
+  `);
+}
+
+async function submitAddAccount() {
+  const name    = document.getElementById('new-acc-name')?.value.trim();
+  const type    = document.getElementById('new-acc-type')?.value;
+  const balance = parseInt(document.getElementById('new-acc-balance')?.value) || 0;
+  if (!name) { showToast('⚠ 口座名を入力してください', true); return; }
+
+  const account = { name, type, balance, id: Date.now() };
+  customAccounts.push(account);
+  saveCustomAccounts();
+  renderRecInputCard();
+  closeModal();
+  showToast(`「${name}」を追加しました ✓`);
+
+  if (GAS_URL) {
+    const yearMonth = getCurrentYearMonth('rec');
+    await callGAS('addAccount', { account, yearMonth, balance });
+  }
+}
+function completeReconcile(){const el=document.getElementById('rec-status');el.className='reconcile-status status-done';el.textContent='✓ 照合済み';showToast('✅ 照合を完了しました');}
+
+// ── GAS URL（他の関数より先に宣言）──
+let GAS_URL = localStorage.getItem('gas_url') || '';
+
+// ── 初期化 ──
+renderCategories();
+initYearSelectors();
+renderRecInputCard();
+renderTrend();
+renderRateChart();
+refreshSummaryLocal();
+onRecPeriodChange();
+initEntryScreen();
+
+// GAS URL設定済み表示 & 初期データ取得
+window.addEventListener('load', async () => {
+  const el = document.getElementById('gas-url-status');
+  if (GAS_URL && el) el.textContent = '設定済';
+  if (GAS_URL) {
+    await syncCategories();
+    await refreshSummary();
+    await refreshTrend();
+    await refreshSecRate();
+    await loadLatestAsset();
+  }
+});
+
+// ================================================================
+// 明細画面
+// ================================================================
+
+// キーワードルール: { keyword, category }[]
+let keywordRules = JSON.parse(localStorage.getItem('keyword_rules') || '[]');
+if (!keywordRules.length) {
+  keywordRules = [
+    { keyword: 'イオン', category: '食費' },
+    { keyword: 'マルエツ', category: '食費' },
+    { keyword: 'ライフ', category: '食費' },
+    { keyword: 'コンビニ', category: '食費' },
+    { keyword: 'セブン', category: '食費' },
+    { keyword: 'ローソン', category: '食費' },
+    { keyword: 'ファミマ', category: '食費' },
+    { keyword: 'Suica', category: '交通費' },
+    { keyword: 'PASMO', category: '交通費' },
+    { keyword: 'バス', category: '交通費' },
+    { keyword: 'Netflix', category: '趣味・娯楽' },
+    { keyword: 'Amazon', category: '日用品' },
+    { keyword: 'マツキヨ', category: '医療・健康' },
+    { keyword: 'ドラッグ', category: '医療・健康' },
+    { keyword: 'GOOGLE', category: '通信費' },
+    { keyword: 'ドコモ', category: '通信費' },
+    { keyword: 'au', category: '通信費' },
+  ];
+  saveKeywordRules();
+}
+function saveKeywordRules() {
+  localStorage.setItem('keyword_rules', JSON.stringify(keywordRules));
+}
+
+// 店名からカテゴリを推測
+function guessCategory(shopName) {
+  const name = String(shopName).toLowerCase();
+  for (const rule of keywordRules) {
+    if (name.includes(rule.keyword.toLowerCase())) return rule.category;
+  }
+  return '';
+}
+
+// 現在表示中の明細データ
+let detailRows = [];
+let detailFilter = 'all';
+
+const SRC_LABELS = {
+  rakuten: { label: '楽天', cls: 'src-rakuten' },
+  smbc:    { label: '三井住友', cls: 'src-smbc' },
+  paypay:  { label: 'PayPay', cls: 'src-paypay' },
+  bank:    { label: '楽天銀行', cls: 'src-bank' },
+  cash:    { label: '現金', cls: 'src-cash' },
+};
+
+function setDetailFilter(src, btn) {
+  detailFilter = src;
+  document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDetails();
+}
+
+async function loadDetails() {
+  const year  = parseInt(document.getElementById('det-year').value);
+  const month = parseInt(document.getElementById('det-month').value);
+  document.getElementById('det-list').innerHTML =
+    '<div style="text-align:center;padding:24px;color:var(--text3);font-size:12px">読込中…</div>';
+
+  if (GAS_URL) {
+    const data = await callGAS('getDetails', { year, month });
+    if (data?.ok) {
+      detailRows = data.rows.map((r, i) => ({ ...r, _uid: `${r.src}_${r.rowNum ?? i}` }));
+      renderDetails();
+      return;
+    }
+  }
+  // GASなし：ローカルストアから
+  const ym = `${year}/${String(month).padStart(2,'0')}`;
+  detailRows = [];
+  ['rakuten','smbc','paypay','bank','cash'].forEach(src => {
+    const srcRows = localStore[src] || [];
+    srcRows.forEach((r, i) => {
+      const d = String(r.date || '').substring(0,7);
+      if (d !== ym) return;
+      detailRows.push({
+        src, rowNum: null, _uid: `${src}_local_${i}`,
+        date: r.date, shop: r.shop,
+        amount: r.amount || r.withdrawal || 0,
+        category: r.category || ''
+      });
+    });
+  });
+  detailRows.sort((a,b) => String(b.date).localeCompare(String(a.date)));
+  renderDetails();
+}
+
+function renderDetails() {
+  const filtered = detailFilter === 'all'
+    ? detailRows
+    : detailRows.filter(r => r.src === detailFilter);
+
+  const totalExp = filtered.filter(r => r.amount > 0).reduce((s,r) => s + r.amount, 0);
+  const totalInc = filtered.filter(r => r.amount < 0).reduce((s,r) => s + Math.abs(r.amount), 0);
+  document.getElementById('det-count').textContent = filtered.length + '件';
+  document.getElementById('det-total').textContent = totalInc > 0
+    ? `支出 ¥${totalExp.toLocaleString()} ／ 収入 ¥${totalInc.toLocaleString()}`
+    : '¥' + totalExp.toLocaleString();
+
+  if (!filtered.length) {
+    document.getElementById('det-list').innerHTML =
+      '<div style="text-align:center;padding:24px;color:var(--text3);font-size:12px">この月のデータはありません</div>';
+    return;
+  }
+
+  document.getElementById('det-list').innerHTML = filtered.map((r) => {
+    const sl = SRC_LABELS[r.src] || { label: r.src, cls: '' };
+    const isIncome = r.amount < 0 || r.type === 'income';
+    const catHtml = r.category
+      ? `<span class="cat-tag" style="${isIncome ? 'background:var(--mint-light);color:var(--mint)' : ''}">${r.category}</span>`
+      : `<span class="cat-tag empty">未分類</span>`;
+    const isCash = r.src === 'cash';
+    const uid = r._uid;
+    const actions = isCash
+      ? `<button class="icon-btn icon-btn-edit" onclick="openEditDetail('${uid}')" title="編集">✏️</button>
+         <button class="icon-btn icon-btn-del" onclick="confirmDeleteDetail('${uid}')" title="削除">🗑</button>`
+      : `<button class="icon-btn icon-btn-edit" onclick="openEditDetail('${uid}')" title="カテゴリ編集">🏷</button>`;
+    const amtColor = isIncome ? 'color:var(--mint)' : '';
+    const amtPrefix = isIncome ? '＋' : '';
+    return `<div class="detail-item">
+      <div class="detail-left">
+        <div class="detail-name">${r.shop || '—'}</div>
+        <div class="detail-meta">
+          <span class="detail-source-label ${sl.cls}">${sl.label}</span>
+          <span>${String(r.date).substring(5) || ''}</span>
+          ${catHtml}
+        </div>
+      </div>
+      <div class="detail-amount" style="${amtColor}">${amtPrefix}¥${Math.abs(Number(r.amount)).toLocaleString()}</div>
+      <div class="detail-actions">${actions}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── 自動分類実行 ──
+async function runAutoClassify() {
+  const targets = detailRows.filter(r => !r.category);
+  if (!targets.length) { showToast('未分類の明細はありません'); return; }
+
+  let updated = 0;
+  targets.forEach(r => {
+    const cat = guessCategory(r.shop);
+    if (cat) { r.category = cat; updated++; }
+  });
+
+  if (!updated) { showToast('⚠ マッチするキーワードがありませんでした', true); return; }
+
+  // GASに一括更新
+  if (GAS_URL) {
+    const updateTargets = targets.filter(r => r.category && r.rowNum);
+    if (updateTargets.length) {
+      await callGAS('updateCategories', { updates: updateTargets.map(r => ({
+        src: r.src, rowNum: r.rowNum, category: r.category
+      }))});
+    }
+  }
+  renderDetails();
+  showToast(`✅ ${updated}件を自動分類しました`);
+  // 概要を更新
+  if (GAS_URL) await refreshSummary(); else refreshSummaryLocal();
+}
+
+// ── 個別編集モーダル（カテゴリのみ or 全項目）──
+function openEditDetail(uid) {
+  const row = detailRows.find(r => r._uid === uid);
+  if (!row) return;
+  const isCash = row.src === 'cash';
+  openModal(isCash ? '明細を編集' : 'カテゴリを編集', `
+    ${isCash ? `
+    <div class="form-group">
+      <label class="form-label">店名・内容</label>
+      <input type="text" class="form-input" id="edit-shop" value="${row.shop || ''}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">金額（円）</label>
+      <input type="number" class="form-input" id="edit-amount" value="${row.amount}" inputmode="numeric">
+    </div>` : `
+    <div style="padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:500">${row.shop}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">¥${row.amount.toLocaleString()} · ${row.date}</div>
+    </div>`}
+    <div class="form-group" style="margin-bottom:0">
+      <label class="form-label">カテゴリ</label>
+      <select class="form-input" id="edit-cat">
+        <option value="">— 未分類 —</option>
+        ${categories.map(c => `<option value="${c}" ${c === row.category ? 'selected' : ''}>${c}</option>`).join('')}
+      </select>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="submitEditDetail('${uid}')">保存する</button>
+      <button class="btn btn-outline" style="flex:0 0 auto;width:auto;padding:14px 16px" onclick="closeModal()">キャンセル</button>
+    </div>
+  `);
+}
+
+async function submitEditDetail(uid) {
+  const row = detailRows.find(r => r._uid === uid);
+  if (!row) return;
+  const isCash = row.src === 'cash';
+  const shop   = isCash ? (document.getElementById('edit-shop')?.value.trim() || row.shop) : row.shop;
+  const amount = isCash ? (parseInt(document.getElementById('edit-amount')?.value) || row.amount) : row.amount;
+  const cat    = document.getElementById('edit-cat').value;
+
+  row.shop = shop; row.amount = amount; row.category = cat;
+  closeModal();
+  renderDetails();
+
+  if (GAS_URL && row.rowNum) {
+    await callGAS('updateDetail', { src: row.src, rowNum: row.rowNum, shop, amount, category: cat });
+    showToast('✅ 更新しました');
+    await refreshSummary();
+  } else {
+    showToast('✅ 更新しました');
+    refreshSummaryLocal();
+  }
+}
+
+function confirmDeleteDetail(uid) {
+  const row = detailRows.find(r => r._uid === uid);
+  if (!row) return;
+  openModal('明細を削除', `
+    <div style="background:var(--red-light);border-radius:12px;padding:14px;margin-bottom:16px;font-size:13px;color:var(--red)">
+      <strong>${row.shop}</strong><br>
+      <span style="font-family:'DM Mono',monospace">¥${row.amount.toLocaleString()}</span>　${row.date || ''}
+    </div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:16px">この明細を削除しますか？スプレッドシートからも削除されます。</p>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" style="flex:1;background:var(--red);box-shadow:none" onclick="submitDeleteDetail('${uid}')">削除する</button>
+      <button class="btn btn-outline" style="flex:0 0 auto;width:auto;padding:14px 16px" onclick="closeModal()">キャンセル</button>
+    </div>
+  `);
+}
+
+async function submitDeleteDetail(uid) {
+  const i = detailRows.findIndex(r => r._uid === uid);
+  if (i < 0) return;
+  const row = detailRows[i];
+  detailRows.splice(i, 1);
+  closeModal();
+  renderDetails();
+
+  if (GAS_URL && row.rowNum) {
+    await callGAS('deleteDetail', { src: row.src, rowNum: row.rowNum });
+    showToast('🗑 削除しました', true);
+    await refreshSummary();
+  } else {
+    showToast('🗑 削除しました', true);
+    refreshSummaryLocal();
+  }
+}
+
+// ── キーワードルール管理モーダル ──
+function openKeywordModal() {
+  renderKeywordModal();
+}
+function renderKeywordModal() {
+  openModal('キーワード自動分類ルール', `
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">店名にキーワードが含まれていると自動でカテゴリを割り当てます</div>
+    <div id="keyword-list">
+      ${keywordRules.map((r,i) => `
+        <div class="keyword-rule">
+          <div class="keyword-text">${r.keyword}</div>
+          <div class="keyword-cat">→ ${r.category}</div>
+          <button class="icon-btn icon-btn-del" onclick="deleteKeywordRule(${i})" style="width:24px;height:24px;font-size:11px">×</button>
+        </div>`).join('') || '<div style="color:var(--text3);font-size:12px;padding:8px 0">ルールがありません</div>'}
+    </div>
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">新しいルールを追加</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input type="text" class="form-input" id="new-keyword" placeholder="キーワード" style="flex:1">
+        <select class="form-input" id="new-keyword-cat" style="flex:1">
+          ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="addKeywordRule()">追加する</button>
+    </div>
+  `);
+}
+function addKeywordRule() {
+  const kw  = document.getElementById('new-keyword')?.value.trim();
+  const cat = document.getElementById('new-keyword-cat')?.value;
+  if (!kw || !cat) return;
+  keywordRules.unshift({ keyword: kw, category: cat });
+  saveKeywordRules();
+  renderKeywordModal();
+  showToast(`「${kw}」ルールを追加しました`);
+}
+function deleteKeywordRule(i) {
+  keywordRules.splice(i, 1);
+  saveKeywordRules();
+  renderKeywordModal();
+}
+
+
+const GAS_URL_KEY = 'gas_url';
+
+function getGasUrl() {
+  return localStorage.getItem(GAS_URL_KEY) || '';
+}
+function setGasUrl(url) {
+  localStorage.setItem(GAS_URL_KEY, url);
+  GAS_URL = url;
+}
+
+async function callGAS(action, params = {}) {
+  if (!GAS_URL) { showToast('⚠ GAS URLが未設定です。設定画面で入力してください', true); return null; }
+  try {
+    const body = new URLSearchParams({ payload: JSON.stringify({ action, ...params }) });
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      body,
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch { throw new Error('レスポンス解析失敗: ' + text.slice(0, 200)); }
+    if (!data.ok) console.warn(`[GAS] ${action} ok:false →`, JSON.stringify(data));
+    else console.log(`[GAS] ${action} ✓`, data);
+    return data;
+  } catch (err) {
+    console.error('[GAS] error:', action, err);
+    if (err.message.includes('Failed to fetch') || err.message.includes('ERR_CONNECTION')) {
+      showToast('⚠ GASへの接続に失敗しました。GAS URLと実行権限を確認してください', true);
+    } else {
+      showToast('⚠ 通信エラー: ' + err.message, true);
+    }
+    return null;
+  }
+}
+
+
+// ── 過去資産データインポート ──
+// 元データ列：日付 | お財布 | 袋 | ゆうちょ | 楽天 | 銀行合計 | PayPay | 投資額 | 損益 | 利率 | 実質 | 合計 | 家計簿 | 誤差 | 総資産 | 先月との差
+let _assetImportRows = [];
+
+function parseAssetImportText(text) {
+  const lines = text.trim().split('\n').filter(l => l.trim());
+  const rows = [];
+  let lastYear = '';
+
+  lines.forEach(line => {
+    const cols = line.split('\t').map(c => c.trim().replace(/,/g, '').replace(/%/g, ''));
+
+    // 年を含む行の判定（「2021年」「2022年」など）
+    if (/^\d{4}年?$/.test(cols[0])) {
+      lastYear = cols[0].replace('年', '');
+      // 同じ行に日付データも続く場合がある
+      if (!cols[1] || !/^\d/.test(cols[1])) return;
+      cols.shift(); // 年列を除いて処理継続
+    }
+
+    // 日付列の解析
+    let rawDate = cols[0] || '';
+    if (!rawDate || !/\d/.test(rawDate)) return;
+
+    let dateStr = '';
+    if (/^\d{4}\//.test(rawDate)) {
+      // 既に yyyy/mm/dd 形式
+      dateStr = rawDate;
+      lastYear = rawDate.split('/')[0];
+    } else if (/^\d{1,2}\/\d{1,2}$/.test(rawDate)) {
+      // m/d 形式 → lastYear を補完
+      const [m, d] = rawDate.split('/');
+      dateStr = `${lastYear}/${m.padStart(2,'0')}/${d.padStart(2,'0')}`;
+    } else {
+      return;
+    }
+
+    const n = i => Number(cols[i] || 0) || 0;
+
+    // 列マッピング（元データ順）
+    // cols[0]=日付 [1]=お財布 [2]=袋 [3]=ゆうちょ [4]=楽天 [5]=銀行合計
+    // [6]=PayPay [7]=投資額 [8]=損益 [9]=利率 [10]=実質 [11]=合計
+    // [12]=家計簿 [13]=誤差 [14]=総資産 [15]=先月との差
+    const cash      = n(1) + n(2);  // お財布＋袋
+    const yucho     = n(3);
+    const rakuten   = n(4);
+    const paypay    = n(6);
+    const cumInvest = n(7);
+    const pnl       = n(8);
+    const rate      = Number(cols[9] || 0) || 0;
+    const total     = n(14);
+    const prevDiff  = n(15);
+
+    rows.push({ date: dateStr, cash, yucho, rakuten, paypay, cumInvest, pnl, rate, total, prevDiff });
+  });
+
+  return rows;
+}
+
+function previewAssetImport() {
+  const text = document.getElementById('import-asset-text').value;
+  if (!text.trim()) { showToast('⚠ データを貼り付けてください', true); return; }
+
+  _assetImportRows = parseAssetImportText(text);
+  const previewEl = document.getElementById('asset-import-preview');
+  const btn = document.getElementById('asset-import-btn');
+
+  if (!_assetImportRows.length) {
+    previewEl.style.display = 'block';
+    previewEl.innerHTML = '<div style="color:var(--red);font-size:12px">⚠ パースできるデータがありませんでした。列がタブ区切りか確認してください</div>';
+    btn.disabled = true;
+    return;
+  }
+
+  previewEl.style.display = 'block';
+  previewEl.innerHTML = `
+    <div style="font-size:11px;color:var(--mint);font-weight:700;margin-bottom:8px">✓ ${_assetImportRows.length}件を検出</div>
+    <div style="overflow-x:auto">
+      <table class="preview-table">
+        <thead><tr><th>日付</th><th style="text-align:right">現金</th><th style="text-align:right">ゆうちょ</th><th style="text-align:right">楽天</th><th style="text-align:right">累計投資</th><th style="text-align:right">損益</th><th style="text-align:right">総資産</th></tr></thead>
+        <tbody>${_assetImportRows.slice(0,5).map(r =>
+          `<tr>
+            <td>${r.date}</td>
+            <td class="amt">¥${r.cash.toLocaleString()}</td>
+            <td class="amt">¥${r.yucho.toLocaleString()}</td>
+            <td class="amt">¥${r.rakuten.toLocaleString()}</td>
+            <td class="amt">¥${r.cumInvest.toLocaleString()}</td>
+            <td class="amt" style="color:${r.pnl>=0?'var(--mint)':'var(--red)'}">${r.pnl>=0?'＋':''}¥${r.pnl.toLocaleString()}</td>
+            <td class="amt">¥${r.total.toLocaleString()}</td>
+          </tr>`
+        ).join('')}
+        ${_assetImportRows.length > 5 ? `<tr><td colspan="7" style="text-align:center;color:var(--text3)">…他${_assetImportRows.length-5}件</td></tr>` : ''}
+        </tbody>
+      </table>
+    </div>`;
+  btn.disabled = false;
+}
+
+async function executeAssetImport() {
+  if (!_assetImportRows.length) { showToast('⚠ まずプレビューしてください', true); return; }
+  if (!GAS_URL) { showToast('⚠ GAS URLが未設定です', true); return; }
+
+  const btn = document.getElementById('asset-import-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 送信中…';
+
+  const res = await callGAS('importHistoricalAssets', { rows: _assetImportRows });
+
+  btn.disabled = false;
+  btn.textContent = 'インポート実行';
+
+  if (res?.ok) {
+    showToast(`✅ ${res.added}件をインポートしました（${res.skipped}件スキップ）`);
+    document.getElementById('asset-import-preview').innerHTML +=
+      `<div style="margin-top:8px;font-size:11px;color:var(--mint)">✅ ${res.added}件追加 / ${res.skipped}件スキップ（既存データ）</div>`;
+    _assetImportRows = [];
+  } else {
+    showToast('⚠ インポートに失敗しました: ' + (res?.error || '不明'), true);
+  }
+}
+
+// ── GAS URL設定モーダル ──
+function openGasUrlModal() {
+  openModal('スプレッドシート連携', `
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px">
+      Apps Script のデプロイ後に表示された「ウェブアプリURL」を貼り付けてください
+    </div>
+    <div class="form-group">
+      <label class="form-label">ウェブアプリURL</label>
+      <input type="url" class="form-input" id="gas-url-input"
+        placeholder="https://script.google.com/macros/s/..." 
+        value="${getGasUrl()}">
+    </div>
+    <button class="btn btn-primary" onclick="saveGasUrl()">保存する</button>
+    <div style="margin-top:10px">
+      <button class="btn btn-mint btn-sm" onclick="testGasConnection()">接続テスト</button>
+    </div>
+    <div id="gas-test-result" style="margin-top:10px;font-size:12px;display:none"></div>
+  `);
+}
+
+async function saveGasUrl() {
+  const url = document.getElementById('gas-url-input')?.value.trim();
+  if (!url) { showToast('⚠ URLを入力してください', true); return; }
+  setGasUrl(url);
+  const statusEl = document.getElementById('gas-url-status');
+  if (statusEl) statusEl.textContent = '設定済';
+  closeModal();
+  showToast('GAS URLを保存しました ✓');
+  await syncCategories();
+  await refreshSummary();
+  await refreshTrend();
+  await refreshSecRate();
+}
+
+async function testGasConnection() {
+  const url = document.getElementById('gas-url-input')?.value.trim();
+  if (!url) return;
+  const resultEl = document.getElementById('gas-test-result');
+  resultEl.style.display = 'block';
+  resultEl.textContent = '接続確認中…';
+  resultEl.style.color = 'var(--text3)';
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.ok) {
+      resultEl.textContent = '✅ 接続成功: ' + data.message;
+      resultEl.style.color = 'var(--mint)';
+    } else {
+      resultEl.textContent = '⚠ エラー: ' + (data.error || '不明');
+      resultEl.style.color = 'var(--red)';
+    }
+  } catch (e) {
+    resultEl.textContent = '❌ 接続失敗: ' + e.message;
+    resultEl.style.color = 'var(--red)';
+  }
+}
+
+// ── カテゴリ同期 ──
+async function syncCategories() {
+  const data = await callGAS('getCategories');
+  if (data?.ok && data.categories?.length) {
+    categories = data.categories;
+    renderCategories();
+  }
+}
+
+// ── 概要を手動リロード ──
+async function reloadSummary() {
+  const btn = document.getElementById('reload-btn');
+  if (btn) { btn.textContent = '⏳ 読込中…'; btn.disabled = true; }
+  if (GAS_URL) {
+    await refreshSummary();
+    await refreshTrend();
+    await refreshSecRate();
+    showToast('✅ スプレッドシートから更新しました');
+  } else {
+    refreshSummaryLocal();
+    showToast('⚠ GAS URLが未設定です。設定画面でURLを入力してください', true);
+  }
+  if (btn) { btn.textContent = '🔄 再読み込み'; btn.disabled = false; }
+}
+
+
+// ── 取込月セレクタ初期化 ──
+function initImportMonthSelector() {
+  const now = new Date();
+  const yearEl = document.getElementById('import-year');
+  const monthEl = document.getElementById('import-month');
+  if (!yearEl || !monthEl) return;
+  yearEl.innerHTML = '';
+  for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 1; y++) {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y + '年';
+    if (y === now.getFullYear()) o.selected = true;
+    yearEl.appendChild(o);
+  }
+  monthEl.innerHTML = '';
+  for (let m = 1; m <= 12; m++) {
+    const o = document.createElement('option');
+    o.value = m; o.textContent = m + '月';
+    if (m === now.getMonth() + 1) o.selected = true;
+    monthEl.appendChild(o);
+  }
+}
+
+function getImportYearMonth() {
+  const y = document.getElementById('import-year')?.value || new Date().getFullYear();
+  const m = document.getElementById('import-month')?.value || (new Date().getMonth() + 1);
+  return { year: parseInt(y), month: parseInt(m), ym: `${y}/${String(m).padStart(2, '0')}` };
+}
+
+function onUploadAreaClick(e) {
+  // input要素自体のクリックは無視（二重発火防止）
+  if (e.target.id === 'csv-input') return;
+  const cardType = document.getElementById('card-select').value;
+  if (!cardType) {
+    showToast('⚠ 先にカード種別を選択してください', true);
+    // カード選択欄をハイライト
+    const sel = document.getElementById('card-select');
+    sel.style.borderColor = 'var(--red)';
+    setTimeout(() => sel.style.borderColor = '', 2000);
+    return;
+  }
+  // input をリセットしてから開く（同じファイルを再選択できるよう）
+  const input = document.getElementById('csv-input');
+  input.value = '';
+  input.click();
+}
+
+// ── CSV取込（実際のファイル読み込み＋GAS送信）──
+async function handleCSVReal(input) {
+  if (!input.files.length) return;
+  const file = input.files[0];
+  const filename = file.name;
+  const cardType = document.getElementById('card-select').value;
+  if (!cardType) { showToast('⚠ カード種別を先に選択してください', true); return; }
+
+  // 重複チェック（ローカル）
+  if (importedFiles.includes(filename)) {
+    document.getElementById('dup-warning').style.display = 'block';
+    showToast('⚠ 取込済みのファイルです', true);
+  } else {
+    document.getElementById('dup-warning').style.display = 'none';
+  }
+
+  // 三井住友はShift-JIS、それ以外はUTF-8で読み込む
+  let text;
+  try {
+    if (cardType === 'smbc') {
+      const buffer = await file.arrayBuffer();
+      const decoder = new TextDecoder('shift-jis');
+      text = decoder.decode(buffer);
+    } else {
+      text = await file.text();
+    }
+  } catch(e) {
+    text = await file.text();
+  }
+
+  const rows = parseCSV(text, cardType);
+  if (!rows.length) { showToast('⚠ データが見つかりません。列の順番を確認してください', true); return; }
+
+  // 取込月セレクタを初期化（CSVの日付から自動推測）
+  initImportMonthSelector();
+  autoDetectImportMonth(rows, cardType);
+
+  // プレビュー更新
+  updatePreview(rows, cardType, filename);
+  document.getElementById('csv-preview').style.display = 'block';
+
+  // 取込実行ボタンにデータを渡す
+  window._pendingImport = { cardType, filename, rows };
+}
+
+function parseCSV(text, cardType) {
+  // BOM除去・改行正規化
+  text = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = text.trim().split('\n');
+
+  if (cardType === 'rakuten') {
+    // 楽天: ヘッダー1行スキップ。列: 利用日(0), 店名(1), 利用者(2), 支払方法(3), 利用金額(4)
+    return lines.slice(1)
+      .map(line => {
+        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+        return { date: cols[0], shop: cols[1], amount: parseAmount(cols[4]) };
+      })
+      .filter(r => r.date && /^\d{4}\//.test(r.date) && r.amount > 0);
+
+  } else if (cardType === 'smbc') {
+    // 三井住友: ヘッダーなし。名前行をスキップ（日付で始まる行のみ処理）。列: 利用日(0), 店名(1), 金額(2)
+    return lines
+      .map(line => {
+        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+        return { date: cols[0], shop: cols[1], amount: parseAmount(cols[2]) };
+      })
+      .filter(r => r.date && /^\d{4}\//.test(r.date) && r.amount > 0);
+
+  } else if (cardType === 'bank') {
+    // 楽天銀行: ヘッダー1行スキップ。列: 取引日(0), 摘要(1), 出金(2), 入金(3)
+    return lines.slice(1)
+      .map(line => {
+        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+        return { date: cols[0], shop: cols[1], withdrawal: parseAmount(cols[2]), deposit: parseAmount(cols[3]) };
+      })
+      .filter(r => r.date && /^\d{4}\//.test(r.date) && (r.withdrawal > 0 || r.deposit > 0));
+
+  } else {
+    // PayPay CSV（NumbersエクスポートまたはPayPayアプリDL）
+    // 列: 取引日(0) | 出金金額(1) | 入金金額(2) | 海外出金(3) | 通貨(4) | 変換レート(5) | 利用圏(6) | 取引内容(7) | 取引先(8) | 取引方法(9) | ...
+    // 取引日は "2026/04/11 12:49:04" 形式 → 日付部分のみ取得
+    // 出金金額(1)が支払い額。入金金額(2)はチャージなので除外。
+    // 取引内容(7)が「支払い」または「受け取った金額」のみ取込（チャージ・ボーナスは除外）
+    const INCLUDE_TYPES = ['支払い', '受け取った金額', 'ストア決済'];
+    return lines.slice(1)
+      .map(line => {
+        const cols = splitCSVLine(line);
+        const dateRaw = cols[0] || '';
+        const date = dateRaw.split(' ')[0]; // "2026/04/11 12:49:04" → "2026/04/11"
+        const withdrawal = parseAmount(cols[1]); // 出金金額
+        const txType     = (cols[7] || '').trim(); // 取引内容
+        const shop       = (cols[8] || cols[7] || '').trim(); // 取引先（なければ取引内容）
+        return { date, shop, amount: withdrawal, txType };
+      })
+      .filter(r => {
+        if (!r.date || !/^\d{4}\//.test(r.date)) return false;
+        if (r.amount <= 0) return false;
+        // 取引内容が「チャージ」「PayPay」のみのものは除外
+        if (r.txType === 'チャージ') return false;
+        return true;
+      })
+      .map(r => ({ date: r.date, shop: r.shop, amount: r.amount }));
+  }
+}
+
+// CSV行を正しく分割（ダブルクォート内のカンマを無視）
+function splitCSVLine(line) {
+  const cols = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+    else { cur += c; }
+  }
+  cols.push(cur.trim());
+  return cols;
+}
+
+function parseAmount(str) {
+  if (!str) return 0;
+  return parseInt(str.replace(/[¥,円\s]/g, '')) || 0;
+}
+
+// CSVの日付から取込月を自動推測してセレクタにセット
+function autoDetectImportMonth(rows, cardType) {
+  // 最初の有効な日付を拾う
+  const firstDate = rows[0]?.date;
+  if (!firstDate) return;
+  const parts = String(firstDate).split('/');
+  if (parts.length < 2) return;
+  const year = parseInt(parts[0]);
+  const month = parseInt(parts[1]);
+  if (!year || !month) return;
+
+  // 楽天・三井住友は「利用日の翌月」が引落月 → 利用月をそのままセット（ユーザーが確認して変更可）
+  const yearEl = document.getElementById('import-year');
+  const monthEl = document.getElementById('import-month');
+  if (yearEl) { [...yearEl.options].forEach(o => o.selected = (parseInt(o.value) === year)); }
+  if (monthEl) { [...monthEl.options].forEach(o => o.selected = (parseInt(o.value) === month)); }
+
+  // 注記を更新
+  const noteEl = document.getElementById('import-month-note');
+  if (noteEl) {
+    if (cardType === 'paypay' || cardType === 'bank') {
+      noteEl.textContent = `※ CSVの利用日（${year}年${month}月）から自動検出しました`;
+    } else {
+      noteEl.textContent = `※ CSVの日付（${year}年${month}月）から自動検出。引落月に合わせて変更もできます`;
+    }
+  }
+}
+
+function updatePreview(rows, cardType, filename) {
+  const isPayPay = cardType === 'paypay';
+  const isBank = cardType === 'bank';
+  document.getElementById('preview-date-header').textContent = (isPayPay || isBank) ? '利用日' : '利用日';
+  const tbody = document.getElementById('preview-tbody');
+  const show = rows.slice(0, 5);
+  tbody.innerHTML = show.map(r => {
+    const amt = r.amount || r.withdrawal || 0;
+    return `<tr><td style="color:var(--text3);font-size:10px">${r.date || ''}</td><td>${r.shop}</td><td class="amt">¥${amt.toLocaleString()}</td></tr>`;
+  }).join('');
+  // 残り件数
+  const moreEl = document.getElementById('preview-more');
+  if (moreEl) {
+    if (rows.length > 5) { moreEl.style.display='block'; moreEl.textContent=`…他${rows.length - 5}件`; }
+    else moreEl.style.display='none';
+  }
+  // 件数バッジ更新
+  const badge = document.getElementById('preview-count-badge');
+  if (badge) badge.textContent = rows.length + '件';
+  // 合計金額更新
+  const total = rows.reduce((s, r) => s + (r.amount || r.withdrawal || 0), 0);
+  const totalAmtEl = document.getElementById('preview-total');
+  if (totalAmtEl) totalAmtEl.textContent = '¥' + total.toLocaleString();
+}
+
+async function importCSVToGAS() {
+  const pending = window._pendingImport;
+  if (!pending) return;
+
+  // 取込月を取得してpendingに追加
+  const { year, month, ym } = getImportYearMonth();
+  pending.statementYear = year;
+  pending.statementMonth = month;
+  pending.statementYearMonth = ym;
+
+  // ローカルストア用：各rowにstatementYearMonthを付与
+  const taggedRows = pending.rows.map(r => ({ ...r, statementYearMonth: ym }));
+
+  if (!GAS_URL) {
+    storeImportedRows(pending.cardType, taggedRows);
+    importedFiles.push(pending.filename);
+    showToast(`✅ ${pending.rows.length}件を取込みました（${ym}分・ローカル）`);
+    document.getElementById('csv-preview').style.display = 'none';
+    window._pendingImport = null;
+    refreshSummaryLocal();
+    return;
+  }
+  showToast('取込中… しばらくお待ちください');
+  try {
+    const result = await callGAS('importCSV', { ...pending, rows: taggedRows });
+    if (!result) return;
+    if (result.duplicate) { showToast('⚠ 取込済みファイルです', true); return; }
+    if (result.ok) {
+      storeImportedRows(pending.cardType, taggedRows);
+      importedFiles.push(pending.filename);
+      showToast(`✅ ${result.count}件を取込みました（${ym}分）`);
+      document.getElementById('csv-preview').style.display = 'none';
+      window._pendingImport = null;
+      await refreshSummary();
+    } else {
+      showToast('⚠ エラー: ' + (result.error || '不明'), true);
+    }
+  } catch(e) {
+    showToast('⚠ 通信エラー: ' + e.message, true);
+  }
+}
+
+// ── 収支切替ロジック ──
+
+function setEntryMode(mode) {
+  entryMode = mode;
+  const incBtn = document.getElementById('entry-income-btn');
+  const expBtn = document.getElementById('entry-expense-btn');
+  const submitBtn = document.getElementById('entry-submit-btn');
+  if (!incBtn) return;
+
+  if (mode === 'income') {
+    incBtn.className = 'sign-btn active-pos';
+    expBtn.className = 'sign-btn';
+    submitBtn.style.background = 'var(--mint)';
+    submitBtn.style.boxShadow = '0 4px 12px rgba(109,191,158,.3)';
+    submitBtn.textContent = '＋ 収入を登録する';
+    document.getElementById('cash-shop').placeholder = '例：4月分給与';
+  } else {
+    incBtn.className = 'sign-btn';
+    expBtn.className = 'sign-btn active-neg';
+    submitBtn.style.background = 'var(--accent)';
+    submitBtn.style.boxShadow = '0 4px 12px rgba(232,131,90,.3)';
+    submitBtn.textContent = '－ 支出を登録する';
+    document.getElementById('cash-shop').placeholder = '例：コンビニ、薬局など';
+  }
+  renderEntryCategorySelect();
+}
+
+function renderEntryCategorySelect() {
+  const sel = document.getElementById('cash-cat');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— 選択してください —</option>';
+  const cats = entryMode === 'income'
+    ? INCOME_CATEGORIES
+    : categories; // 設定で管理しているカテゴリ（支出用）
+  cats.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c;
+    sel.appendChild(o);
+  });
+}
+
+function initEntryScreen() {
+  // 今日の日付をセット
+  const today = new Date();
+  const dd = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const el = document.getElementById('cash-date');
+  if (el && !el.value) el.value = dd;
+  setEntryMode('income');
+}
+
+// ── 手動入力登録（GAS送信）──
+async function submitEntryToGAS() {
+  const shop   = document.getElementById('cash-shop').value.trim();
+  const amount = parseInt(document.getElementById('cash-amount').value);
+  const cat    = document.getElementById('cash-cat').value;
+  const date   = document.getElementById('cash-date').value.replace(/-/g, '/');
+  if (!amount) { showToast('⚠ 金額を入力してください', true); return; }
+  if (!cat)    { showToast('⚠ カテゴリを選択してください', true); return; }
+
+  const isIncome  = entryMode === 'income';
+  const signedAmt = isIncome ? -amount : amount; // 現金シートは支出が正・収入が負
+  const label     = shop || cat;
+
+  // UIリストに追加
+  const list = document.getElementById('cash-list');
+  const placeholder = list.querySelector('div[style*="text-align:center"]');
+  if (placeholder) placeholder.remove();
+  const item = document.createElement('div');
+  item.className = 'list-item';
+  item.innerHTML = `
+    <div class="list-left"><div>
+      <div class="list-name">${label}</div>
+      <div class="list-sub">${date.slice(5)} · <span class="chip chip-plain">${cat}</span></div>
+    </div></div>
+    <div class="list-amount" style="color:${isIncome ? 'var(--mint)' : 'var(--red)'}">
+      ${isIncome ? '＋' : '－'} ¥${amount.toLocaleString()}
+    </div>`;
+  list.insertBefore(item, list.firstChild);
+
+  document.getElementById('cash-shop').value = '';
+  document.getElementById('cash-amount').value = '';
+
+  storeCashEntry(date, label, signedAmt, cat);
+  refreshSummaryLocal();
+
+  if (!GAS_URL) {
+    showToast(`✅ ${isIncome ? '収入' : '支出'}を登録しました（ローカル）`);
+    return;
+  }
+  const result = await callGAS('addCash', { date, shop: label, amount: signedAmt, category: cat });
+  if (result?.ok) {
+    showToast(`✅ ${isIncome ? '収入' : '支出'}を登録しました`);
+    await refreshSummary();
+  }
+}
+
+// ── 残高更新（GAS送信）──
+async function updateBalanceGAS(label, account, current) {
+  openModal(label + 'の残高を更新', `
+    <div class="form-group">
+      <label class="form-label">残高（円）</label>
+      <input type="number" class="form-input" id="bal-input" value="${current}" inputmode="numeric">
+    </div>
+    <button class="btn btn-primary" onclick="submitBalance('${account}')">更新する</button>
+  `);
+}
+
+async function submitBalance(account) {
+  const balance = parseInt(document.getElementById('bal-input')?.value) || 0;
+  const yearMonth = getCurrentYearMonth('rec');
+  closeModal();
+  if (!GAS_URL) { showToast('残高を更新しました ✓（ローカル）'); return; }
+  const result = await callGAS('updateBalance', { yearMonth, account, balance });
+  if (result?.ok) showToast('残高を更新しました ✓');
+}
+
+// ── 証券損益記録（GAS送信）──
+async function submitSecurities() {
+  const pnl = parseInt(document.getElementById('sec-pnl')?.value) || 0;
+  const yearMonth = getCurrentYearMonth('rec');
+  if (!GAS_URL) { showToast('証券の損益を記録しました ✓（ローカル）'); return; }
+  const result = await callGAS('updateSecurities', { yearMonth, monthlyPnl: pnl });
+  if (result?.ok) showToast('証券の損益を記録しました ✓');
+}
+
+// ── 入金額変更（GAS送信）──
+async function saveDepositGAS() {
+  const val = parseInt(document.getElementById('deposit-input').value) || 0;
+  document.getElementById('deposit-value').textContent = '¥' + val.toLocaleString();
+  toggleDepositEdit();
+  if (!GAS_URL) { showToast('入金額を更新しました ✓（ローカル）'); return; }
+  const result = await callGAS('updateDeposit', { amount: val });
+  if (result?.ok) showToast('入金額を更新しました ✓');
+}
+
+// ── 収支照合 ──
+async function runReconcile() {
+  const yearMonth = getCurrentYearMonth('rec');
+  const resultEl = document.getElementById('reconcile-result');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">照合中…</div>';
+
+  if (!GAS_URL) { showToast('⚠ GAS URLが未設定です', true); return; }
+
+  const data = await callGAS('getBalanceCheck', { yearMonth });
+  if (!data?.ok) { showToast('⚠ 照合データの取得に失敗しました', true); return; }
+
+  const fmt = v => v != null ? '¥' + Math.abs(v).toLocaleString() : '—';
+  const sign = v => v >= 0 ? '＋' : '－';
+  const col  = v => v >= 0 ? 'var(--mint)' : 'var(--red)';
+
+  const safeChangeStr = data.safeChange != null
+    ? `<span style="color:${col(data.safeChange)}">${sign(data.safeChange)}${fmt(data.safeChange)}</span>`
+    : '<span style="color:var(--text3)">データなし（純資産を登録してください）</span>';
+
+  const kakeiboChangeStr = `<span style="color:${col(data.kakeiboChange)}">${sign(data.kakeiboChange)}${fmt(data.kakeiboChange)}</span>`;
+
+  const matched = data.diff != null && data.diff === 0;
+  const diffAbs = data.diff != null ? Math.abs(data.diff) : null;
+
+  let adjustHTML = '';
+  if (data.diff != null && data.diff !== 0) {
+    // 差異の方向を説明
+    // diff = 純資産増減 - 家計簿増減
+    // diff > 0 → 純資産が家計簿より多く増えている → 支出の記録漏れ or 収入の過少記録
+    // diff < 0 → 純資産が家計簿より少ない → 支出の過剰記録 or 収入の記録漏れ
+    const adjAmt  = data.diff > 0 ? -data.diff : Math.abs(data.diff);
+    const adjLabel = data.diff > 0
+      ? `支出として ▲${fmt(data.diff)} を追加記録（純資産超過分を調整）`
+      : `収入として ＋${fmt(data.diff)} を追加記録（純資産不足分を調整）`;
+
+    adjustHTML = `
+      <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:8px">利用額で調整する</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${adjLabel}</div>
+        <div class="form-group" style="margin-bottom:8px">
+          <label class="form-label">メモ（任意）</label>
+          <input type="text" class="form-input" id="adj-memo" placeholder="例：記録漏れ、現金支出など" style="font-size:13px">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="submitCheckAdjust(${adjAmt}, '${yearMonth}')">この調整を記録する</button>
+      </div>`;
+  }
+
+  resultEl.innerHTML = `
+    <div style="margin-bottom:12px">
+      <div class="list-item" style="padding:10px 0">
+        <div style="font-size:12px;color:var(--text2)">純資産の増減（前月比）</div>
+        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500">${safeChangeStr}</div>
+      </div>
+      <div class="list-item" style="padding:10px 0">
+        <div>
+          <div style="font-size:12px;color:var(--text2)">家計簿の収支</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">収入 ${fmt(data.totalIncome)} ／ 支出 ${fmt(data.totalExp)}</div>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500">${kakeiboChangeStr}</div>
+      </div>
+      <div class="list-item" style="padding:10px 0;border-bottom:none">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">差異</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${matched ? 'var(--mint)' : 'var(--red)'}">
+          ${matched ? '✓ 一致' : (data.diff != null ? `${sign(data.diff)}${fmt(data.diff)}` : '—')}
+        </div>
+      </div>
+    </div>
+    ${adjustHTML}`;
+}
+
+async function submitCheckAdjust(amount, yearMonth) {
+  const memo = document.getElementById('adj-memo')?.value || yearMonth;
+  if (!GAS_URL) { showToast('⚠ GAS URLが未設定です', true); return; }
+  const res = await callGAS('addCheckAdjust', { yearMonth, amount, memo });
+  if (res?.ok) {
+    showToast(`✅ 調整を記録しました（${amount >= 0 ? '収入' : '支出'} ¥${Math.abs(amount).toLocaleString()}）`);
+    // 照合を再実行して結果を更新
+    await runReconcile();
+  } else {
+    showToast('⚠ 記録に失敗しました', true);
+  }
+}
+
+// ── 照合完了（GAS送信）──
+async function completeReconcileGAS() {
+  const yearMonth = getCurrentYearMonth('rec');
+  const el = document.getElementById('rec-status');
+  el.className = 'reconcile-status status-done';
+  el.textContent = '✓ 照合済み';
+  if (!GAS_URL) { showToast('✅ 照合を完了しました（ローカル）'); return; }
+  const result = await callGAS('completeReconcile', { yearMonth });
+  if (result?.ok) showToast('✅ 照合を完了しました');
+}
+
+// ── 差異調整（GAS送信）──
+async function submitAdjustGAS() {
+  const amount = parseInt(document.getElementById('adjust-amount')?.value) || 0;
+  const reason = document.getElementById('adjust-reason')?.value || '';
+  const memo   = document.querySelector('#modal-body input[type=text]')?.value || '';
+  const yearMonth = getCurrentYearMonth('rec');
+  const sign = adjustSign === 1 ? '▲' : '＋';
+  closeModal();
+  if (!GAS_URL) { showToast(`${sign}¥${amount.toLocaleString()} の調整を記録しました（ローカル）`); return; }
+  const result = await callGAS('addAdjustment', {
+    yearMonth, account: 'cash', sign: adjustSign, amount, reason, memo
+  });
+  if (result?.ok) showToast(`${sign}¥${amount.toLocaleString()} の調整を記録しました`);
+}
+
+// ── カテゴリ保存（GAS同期）──
+async function saveCategoriesGAS() {
+  await callGAS('saveCategories', { categories });
+}
+
+// ── サマリー・推移を GAS から取得して画面更新 ──
+async function refreshSummary() {
+  const year  = parseInt(document.getElementById('sum-year').value);
+  const month = parseInt(document.getElementById('sum-month').value);
+
+  document.getElementById('sum-total').textContent = '読込中…';
+
+  const data = await callGAS('getSummary', { year, month });
+  if (!data?.ok) {
+    document.getElementById('sum-total').textContent = '⚠ 取得失敗';
+    return;
+  }
+
+  const expense = data.grandTotal   || 0;
+  const income  = data.totalIncome  || 0;
+  const balance = data.balance      || 0;
+
+  document.getElementById('sum-total').textContent  = '¥' + expense.toLocaleString();
+  document.getElementById('sum-income').textContent = '¥' + income.toLocaleString();
+  const balEl = document.getElementById('sum-balance');
+  balEl.textContent = (balance >= 0 ? '＋' : '－') + '¥' + Math.abs(balance).toLocaleString();
+  balEl.style.color = balance >= 0 ? 'var(--mint)' : 'var(--red)';
+
+  // 内訳
+  const keyMap = { rakuten: 'sum-rakuten', smbc: 'sum-smbc', paypay: 'sum-paypay', cash: 'sum-cash' };
+  Object.entries(keyMap).forEach(([key, elId]) => {
+    const el = document.getElementById(elId);
+    if (el) el.textContent = '¥' + (data.breakdown[key]?.total || 0).toLocaleString();
+  });
+
+  // 前月比（支出ベース）
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear  = month === 1 ? year - 1 : year;
+  const prevData  = await callGAS('getSummary', { year: prevYear, month: prevMonth });
+  const diffEl = document.getElementById('sum-diff');
+  if (prevData?.ok && prevData.grandTotal > 0) {
+    const diff = expense - prevData.grandTotal;
+    if (diff > 0)      { diffEl.textContent = `▲ ¥${diff.toLocaleString()}`;           diffEl.style.color = 'var(--red)'; }
+    else if (diff < 0) { diffEl.textContent = `▼ ¥${Math.abs(diff).toLocaleString()}`; diffEl.style.color = 'var(--mint)'; }
+    else               { diffEl.textContent = '± ¥0'; diffEl.style.color = 'var(--text3)'; }
+  } else {
+    diffEl.textContent = '—'; diffEl.style.color = 'var(--text3)';
+  }
+
+  // カテゴリ別バー
+  const barsEl = document.getElementById('sum-category-bars');
+  const catEntries = Object.entries(data.categoryTotals || {}).sort((a, b) => b[1] - a[1]);
+  if (!catEntries.length) {
+    barsEl.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">この月のデータがありません</div>';
+    return;
+  }
+  const maxAmt = catEntries[0][1];
+  const barColors = ['var(--accent)','var(--pink)','var(--blue)','var(--mint)','var(--purple)','var(--yellow)','var(--text3)'];
+  barsEl.innerHTML = catEntries.map(([cat, amt], i) =>
+    `<div class="bar-row">
+      <div class="bar-label" style="font-size:10px;width:72px">${cat}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(amt/maxAmt*100)}%;background:${barColors[i%barColors.length]}"></div></div>
+      <div class="bar-value">¥${amt.toLocaleString()}</div>
+    </div>`
+  ).join('');
+}
+
+async function refreshTrend() {
+  const year = parseInt(document.getElementById('trend-year').value);
+  const data = await callGAS('getAssetTrend', { year });
+  if (!data?.ok || !data.data.length) return;
+
+  assetData[year] = {};
+  data.data.forEach(d => {
+    const m = parseInt(d.yearMonth.split('/')[1]);
+    assetData[year][m] = {
+      bank: d.bank,   // 銀行系合計（ゆうちょ+楽天+PayPay）
+      sec:  d.sec,    // リスク資産（証券評価額）
+      cash: d.cash,   // 現金
+    };
+  });
+  renderTrend();
+}
+
+async function refreshSecRate() {
+  const year = parseInt(document.getElementById('rate-year').value);
+  const data = await callGAS('getSecRate', { year });
+  if (!data?.ok || !data.data.length) return;
+
+  secData[year] = {};
+  data.data.forEach(d => {
+    const m = parseInt(d.yearMonth.split('/')[1]);
+    secData[year][m] = {
+      deposit: d.cumDeposit,  // 累計投資額
+      pnl:     d.cumPnl,      // 損益
+    };
+  });
+  renderRateChart();
+}
+
+// ── ユーティリティ ──
+function getCurrentYearMonth(prefix = 'sum') {
+  const y = document.getElementById(prefix + '-year')?.value || new Date().getFullYear();
+  const m = document.getElementById(prefix + '-month')?.value || (new Date().getMonth() + 1);
+  return `${y}/${String(m).padStart(2, '0')}`;
+}
+
+// 初回ロード時にGASからデータ取得
+
+</script>
+</body>
+</html>
