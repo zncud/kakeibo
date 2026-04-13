@@ -1137,7 +1137,6 @@ function renderTrend(){
   const maxTotal=Math.max(...totals);
   const now=new Date();
   const currentMonth=(year===now.getFullYear())?now.getMonth()+1:null;
-  const area=document.getElementById('trend-area');
   area.innerHTML='';
   months.forEach(m=>{
     const d=data[m];const total=d.bank+d.sec+d.cash;
@@ -1150,7 +1149,7 @@ function renderTrend(){
     col.innerHTML=`<div class="trend-total-label">¥${Math.round(total/10000)}万</div><div class="trend-stack"><div class="trend-seg" style="height:${bankH}px;background:var(--blue);border-radius:3px 3px 0 0;opacity:${op}"></div><div class="trend-seg" style="height:${secH}px;background:var(--purple);opacity:${op}"></div><div class="trend-seg" style="height:${cashH}px;background:var(--accent);opacity:${op}"></div></div><div class="trend-month-label ${isCur?'current':''}">${m}月</div>`;
     area.appendChild(col);
   });
-  const tbody=document.getElementById('trend-tbody');tbody.innerHTML='';
+  tbody.innerHTML='';
   months.forEach(m=>{
     const d=data[m];const total=d.bank+d.sec+d.cash;
     const isCur=m===currentMonth;
