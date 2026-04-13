@@ -2011,14 +2011,19 @@ function parseRakutenPDF(lines) {
     const date = dateMatch[1];
     const shop = cols[1] || '';
 
-    // 「本人*」「1回払い」のような列を飛ばして、
-    // 10円以上の最初の数値を金額として採用
-    const amountCandidates = cols
-      .slice(2)
-      .map(c => parseAmount(c))
-      .filter(v => v >= 10);
+    // 楽天PDFは原則 cols[4] が利用金額
+    let amount = parseAmount(cols[4]);
 
-    const amount = amountCandidates[0] || 0;
+    // 崩れた場合だけ後方から保険をかける
+    if (!(amount > 0)) {
+      const nums = cols
+        .slice(2)
+        .map(c => parseAmount(c))
+        .filter(v => v >= 10 && v <= 9999999);
+
+      // 右側に出る金額列を優先
+      amount = nums.length ? nums[0] : 0;
+    }
 
     if (date && shop && amount > 0) {
       rows.push({ date, shop, amount });
