@@ -623,7 +623,10 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
 // ── 収支カテゴリ定義（先頭で定義）──
 const INCOME_CATEGORIES = ['給与','ボーナス','副業','臨時収入','その他収入'];
 let entryMode = 'income'; // 'income' | 'expense'
-
+let appSettings = {
+  rakuten_billing_day: 27,
+  smbc_billing_day: 10,
+};
 // ── 口座管理（一括入力・一括登録）──
 
 const DEFAULT_ACCOUNTS = [
@@ -1360,6 +1363,13 @@ window.addEventListener('load', async () => {
   if (GAS_URL && el) el.textContent = '設定済';
   if (GAS_URL) {
     try {
+      const settingsRes = await callGAS('getSettings');
+      if (settingsRes?.ok && settingsRes.settings) {
+        appSettings = {
+          ...appSettings,
+          ...settingsRes.settings,
+        };
+      }
       const year     = parseInt(document.getElementById('sum-year').value);
       const month    = parseInt(document.getElementById('sum-month').value);
       const trendYear= parseInt(document.getElementById('trend-year').value);
@@ -2166,7 +2176,21 @@ function parseAmount(str) {
   if (!str) return 0;
   return parseInt(str.replace(/[¥,円\s]/g, '')) || 0;
 }
+function calcBillingDateLocal(useDate, billingDay) {
+  const m = String(useDate).match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+  if (!m) return useDate;
 
+  let y = parseInt(m[1], 10);
+  let mo = parseInt(m[2], 10);
+
+  mo += 1;
+  if (mo > 12) {
+    mo = 1;
+    y += 1;
+  }
+
+  return `${y}/${String(mo).padStart(2, '0')}/${String(billingDay).padStart(2, '0')}`;
+}
 // CSVの日付から取込月を自動推測してセレクタにセット
 function autoDetectImportMonth(rows, cardType) {
   // 最初の有効な日付を拾う
@@ -2198,23 +2222,43 @@ function autoDetectImportMonth(rows, cardType) {
 function updatePreview(rows, cardType, filename) {
   const isPayPay = cardType === 'paypay';
   const isBank = cardType === 'bank';
-  document.getElementById('preview-date-header').textContent = (isPayPay || isBank) ? '利用日' : '利用日';
+  const isRakuten = cardType === 'rakuten';
+  const isSMBC = cardType === 'smbc';
+
+  const headerLabel = (isRakuten || isSMBC) ? '引落日' : '利用日';
+  document.getElementById('preview-date-header').textContent = headerLabel;
+
   const tbody = document.getElementById('preview-tbody');
   const show = rows.slice(0, 5);
+
   tbody.innerHTML = show.map(r => {
+    let displayDate = r.date || '';
+
+    if (isRakuten) {
+      const day = parseInt(appSettings.rakuten_billing_day || 27, 10);
+      displayDate = calcBillingDateLocal(r.date, day);
+    } else if (isSMBC) {
+      const day = parseInt(appSettings.smbc_billing_day || 10, 10);
+      displayDate = calcBillingDateLocal(r.date, day);
+    }
+
     const amt = r.amount || r.withdrawal || 0;
-    return `<tr><td style="color:var(--text3);font-size:10px">${r.date || ''}</td><td>${r.shop}</td><td class="amt">¥${amt.toLocaleString()}</td></tr>`;
+    return `<tr><td style="color:var(--text3);font-size:10px">${displayDate}</td><td>${r.shop}</td><td class="amt">¥${amt.toLocaleString()}</td></tr>`;
   }).join('');
-  // 残り件数
+
   const moreEl = document.getElementById('preview-more');
   if (moreEl) {
-    if (rows.length > 5) { moreEl.style.display='block'; moreEl.textContent=`…他${rows.length - 5}件`; }
-    else moreEl.style.display='none';
+    if (rows.length > 5) {
+      moreEl.style.display = 'block';
+      moreEl.textContent = `…他${rows.length - 5}件`;
+    } else {
+      moreEl.style.display = 'none';
+    }
   }
-  // 件数バッジ更新
+
   const badge = document.getElementById('preview-count-badge');
   if (badge) badge.textContent = rows.length + '件';
-  // 合計金額更新
+
   const total = rows.reduce((s, r) => s + (r.amount || r.withdrawal || 0), 0);
   const totalAmtEl = document.getElementById('preview-total');
   if (totalAmtEl) totalAmtEl.textContent = '¥' + total.toLocaleString();
