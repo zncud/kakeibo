@@ -2005,8 +2005,6 @@ function parseRakutenPDF(lines) {
   lines.forEach((line, idx) => {
     const s = line.trim();
 
-    // 楽天の明細行:
-    // 2026/03/25  Ｓｕｉｃａ（携帯決済）   本人*  1回払い   1,000  0  1,000  1,000  0
     const m = s.match(
       /^(\d{4}\/\d{2}\/\d{2})\s+(.+?)\s+本人\*?\s+1回払い\s+([\d,]+)\s+0\s+[\d,]+\s+[\d,]+\s+0$/
     );
