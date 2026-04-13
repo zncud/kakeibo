@@ -1896,22 +1896,32 @@ async function handlePDFFile(file) {
       const content = await page.getTextContent();
       // アイテムをY座標でグループ化して行ごとに結合
       const items = content.items;
+      // Y座標でグループ化、同じ行内はX座標順でタブ区切り
       const lines = {};
       items.forEach(item => {
-        const y = Math.round(item.transform[5]);
+        const y = Math.round(item.transform[5] * 10) / 10;
+        const x = item.transform[4];
         if (!lines[y]) lines[y] = [];
-        lines[y].push(item.str);
+        lines[y].push({ x, str: item.str });
       });
-      // Y座標降順（上から下）で行を結合
-      Object.keys(lines).sort((a,b) => b-a).forEach(y => {
-        fullText += lines[y].join('\t') + '\n';
-      });
+      Object.keys(lines)
+        .map(Number).sort((a,b) => b-a)
+        .forEach(y => {
+          const sorted = lines[y].sort((a,b) => a.x - b.x);
+          // X座標の差が大きい（20px以上）ときにタブを挿入
+          let row = sorted[0].str;
+          for (let i = 1; i < sorted.length; i++) {
+            const gap = sorted[i].x - sorted[i-1].x - (sorted[i-1].str.length * 5);
+            row += (gap > 15 ? '\t' : '') + sorted[i].str;
+          }
+          fullText += row + '\n';
+        });
     }
 
+    console.log('[PDF] 全抽出テキスト（デバッグ用）:\n' + fullText);
     const rows = parsePDF(fullText, cardType, file.name);
     if (!rows.length) {
-      showToast('⚠ データが見つかりません。対応フォーマットか確認してください', true);
-      console.log('[PDF] 抽出テキスト:', fullText.slice(0, 500));
+      showToast('⚠ データが見つかりません。コンソールのログを確認してください', true);
       return;
     }
 
