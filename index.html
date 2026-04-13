@@ -14,12 +14,12 @@
 <!-- フォント -->
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <!-- PDF.js -->
-<script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
 // PDF.js ワーカーとCMapをスクリプト読み込み直後に設定
 if (typeof pdfjsLib !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 }
 </script>
 <style>
@@ -1882,57 +1882,82 @@ async function handleFileInput(input) {
 // ── PDF取込 ──
 async function handlePDFFile(file) {
   const cardType = document.getElementById('card-select').value;
-  if (!cardType) { showToast('⚠ カード種別を先に選択してください', true); return; }
+  if (!cardType) {
+    showToast('⚠ カード種別を先に選択してください', true);
+    return;
+  }
 
   showToast('📄 PDF解析中…');
 
   try {
-    // PDF.jsでテキスト抽出
     if (typeof pdfjsLib === 'undefined') {
-      showToast('⚠ PDF.jsの読み込みに失敗しました', true); return;
+      showToast('⚠ PDF.jsの読み込みに失敗しました', true);
+      return;
     }
+
     const buffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({
+
+    const loadingTask = pdfjsLib.getDocument({
       data: buffer,
-      cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
+      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
       cMapPacked: true,
-      useWorkerFetch: false,
-      isEvalSupported: false,
-      useSystemFonts: false,
-    }).promise;
+      standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/standard_fonts/',
+      useWorkerFetch: true,
+      isEvalSupported: true,
+      useSystemFonts: true,
+      disableFontFace: false,
+    });
+
+    const pdf = await loadingTask.promise;
 
     let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      // アイテムをY座標でグループ化して行ごとに結合
-      const items = content.items;
-      // Y座標でグループ化、同じ行内はX座標順でタブ区切り
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const content = await page.getTextContent({
+        normalizeWhitespace: true,
+        disableCombineTextItems: false,
+      });
+
+      const items = content.items || [];
       const lines = {};
+
       items.forEach(item => {
+        if (!item.str) return;
         const y = Math.round(item.transform[5] * 10) / 10;
         const x = item.transform[4];
         if (!lines[y]) lines[y] = [];
         lines[y].push({ x, str: item.str });
       });
+
       Object.keys(lines)
-        .map(Number).sort((a,b) => b-a)
+        .map(Number)
+        .sort((a, b) => b - a)
         .forEach(y => {
-          const sorted = lines[y].sort((a,b) => a.x - b.x);
-          // X座標の差が大きい（20px以上）ときにタブを挿入
+          const sorted = lines[y].sort((a, b) => a.x - b.x);
+          if (!sorted.length) return;
+
           let row = sorted[0].str;
           for (let i = 1; i < sorted.length; i++) {
-            const gap = sorted[i].x - sorted[i-1].x - (sorted[i-1].str.length * 5);
-            row += (gap > 15 ? '\t' : '') + sorted[i].str;
+            const gap = sorted[i].x - sorted[i - 1].x;
+            row += (gap > 20 ? '\t' : '') + sorted[i].str;
           }
           fullText += row + '\n';
         });
     }
 
     console.log('[PDF] 全抽出テキスト（デバッグ用）:\n' + fullText);
+
+    if (!fullText.trim()) {
+      showToast('⚠ PDFから文字を抽出できませんでした。画像PDFの可能性があります', true);
+      console.warn('[PDF] 抽出結果が空です');
+      return;
+    }
+
     const rows = parsePDF(fullText, cardType, file.name);
     if (!rows.length) {
-      showToast('⚠ データが見つかりません。コンソールのログを確認してください', true);
+      showToast('⚠ データが見つかりません。PDF形式が想定と違う可能性があります', true);
+      console.warn('[PDF] parse結果0件');
       return;
     }
 
@@ -1942,9 +1967,9 @@ async function handlePDFFile(file) {
     updatePreview(rows, cardType, filename);
     document.getElementById('csv-preview').style.display = 'block';
     window._pendingImport = { cardType, filename, rows };
-    showToast(`✅ ${rows.length}件を検出しました`);
 
-  } catch(e) {
+    showToast(`✅ ${rows.length}件を検出しました`);
+  } catch (e) {
     console.error('[PDF] error:', e);
     showToast('⚠ PDF解析エラー: ' + e.message, true);
   }
@@ -1994,39 +2019,27 @@ function parseRakutenPDF(lines) {
 // 行フォーマット: "26/02/28\t大阪ガス利用料金\t413\t１\t１\t413"
 function parseSMBCPDF(lines) {
   const rows = [];
-  // YY/MM/DD形式
-  const dateRe = /^(\d{2})\/(\d{2})\/(\d{2})/;
 
   lines.forEach(line => {
-    const cols = line.split('\t').map(s => s.trim());
-    const dateMatch = cols[0].match(dateRe);
-    if (!dateMatch) return;
+    const s = line.trim();
 
-    // YY/MM/DD → YYYY/MM/DD
-    const year  = '20' + dateMatch[1];
-    const month = dateMatch[2];
-    const day   = dateMatch[3];
-    const date  = `${year}/${month}/${day}`;
-    const shop  = cols[1] || '';
+    const m = s.match(/^(?:B#|#)?\s*(\d{2})\/(\d{2})\/(\d{2})\s+(.+?)\s+([\d,]+)\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+/);
+    if (!m) return;
 
-    // 金額: cols[2]が利用金額
-    let amount = parseAmount(cols[2]);
-    if (!amount) {
-      // colsをスキャン
-      for (let i = 2; i < Math.min(cols.length, 6); i++) {
-        const v = parseAmount(cols[i]);
-        if (v > 0) { amount = v; break; }
-      }
-    }
+    const yy = m[1];
+    const mm = m[2];
+    const dd = m[3];
+    const shop = m[4].trim();
+    const amount = parseAmount(m[5]);
 
-    if (date && shop && amount > 0 && !shop.includes('ご利用') && !shop.includes('お支払')) {
-      // 引落日を計算（SMBCは翌月10日）
-      const d = new Date(`${year}-${month}-${day}`);
-      const billing = new Date(d.getFullYear(), d.getMonth() + 1, 10);
-      const billingDate = `${billing.getFullYear()}/${String(billing.getMonth()+1).padStart(2,'0')}/${String(billing.getDate()).padStart(2,'0')}`;
-      rows.push({ date: billingDate, shop, amount });
-    }
+    if (!shop || amount <= 0) return;
+
+    const year = '20' + yy;
+    const date = `${year}/${mm}/${dd}`;
+
+    rows.push({ date, shop, amount });
   });
+
   return rows;
 }
 
