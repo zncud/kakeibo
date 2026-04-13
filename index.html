@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>おかねノート</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#e8835a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="おかねノート">
+<link rel="apple-touch-icon" href="icon-192.png">
+<!-- フォント -->
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -2549,6 +2557,15 @@ function getCurrentYearMonth(prefix = 'sum') {
   const y = document.getElementById(prefix + '-year')?.value || new Date().getFullYear();
   const m = document.getElementById(prefix + '-month')?.value || (new Date().getMonth() + 1);
   return `${y}/${String(m).padStart(2, '0')}`;
+}
+
+// ── PWA: Service Worker登録 ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(reg => console.log('[SW] 登録成功:', reg.scope))
+      .catch(err => console.warn('[SW] 登録失敗:', err));
+  });
 }
 
 // 初回ロード時にGASからデータ取得
