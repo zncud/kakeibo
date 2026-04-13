@@ -195,9 +195,6 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
 .asset-table .pos{color:var(--mint)!important}
 .asset-table .neg{color:var(--red)!important}
 
-.reconcile-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;margin-bottom:14px}
-.status-open{background:var(--yellow-light);color:#9a7a00}
-.status-done{background:var(--mint-light);color:var(--mint)}
 
 .deposit-row{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg);border:1.5px solid var(--border2);border-radius:10px;margin-bottom:14px}
 .deposit-amount{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:var(--text)}
@@ -332,13 +329,13 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
     </div>
     <div style="font-size:10px;color:var(--text3);margin-bottom:14px">損益 ÷ 累計入金額 × 100</div>
     <div class="rate-chart">
-      <div style="position:relative;height:130px" id="rate-chart-wrap">
+      <div style="position:relative;height:120px" id="rate-chart-wrap">
         <div class="rate-bars" id="rate-bars"></div>
       </div>
       <div style="display:flex;margin-top:4px" id="rate-labels"></div>
     </div>
     <table class="asset-table" style="margin-top:14px">
-      <thead><tr><th>月</th><th style="text-align:right">累計入金額</th><th style="text-align:right">累計損益</th><th style="text-align:right">利益率</th></tr></thead>
+      <thead><tr><th>月</th><th style="text-align:right">証券評価額</th><th style="text-align:right">累計損益</th><th style="text-align:right">利益率</th></tr></thead>
       <tbody id="rate-tbody"></tbody>
     </table>
   </div>
@@ -366,12 +363,12 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
     📅 PayPayはCSVの<strong>取引日</strong>をそのまま使用します。NumbersからCSV書き出しに対応しています。チャージは自動で除外されます。
   </div>
   <div class="dup-warning" id="dup-warning">⚠️ このファイルはすでに取込済みの可能性があります（同じファイル名を検出）。重複しないようご確認ください。</div>
-  <div class="upload-area" onclick="onUploadAreaClick(event)">
+  <label class="upload-area" for="csv-input" style="display:block;cursor:pointer">
     <div class="upload-icon">📂</div>
     <div class="upload-text">CSV または PDF をタップして選択</div>
     <div class="upload-hint">各サービスのマイページからDLしたCSV・PDF</div>
-    <input type="file" id="csv-input" accept=".csv,.pdf" style="display:none" onchange="handleFileInput(this)">
-  </div>
+  </label>
+  <input type="file" id="csv-input" accept=".csv,.pdf,.CSV,.PDF" style="display:none" onchange="handleFileInput(this)">
   <div class="card" id="csv-preview" style="display:none">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div class="card-label" style="margin-bottom:0">取込プレビュー</div>
@@ -456,7 +453,6 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
       <option>9</option><option>10</option><option>11</option><option>12</option>
     </select>
     <span class="period-label">月</span>
-    <div class="reconcile-status status-open" id="rec-status">⏳ 照合待ち</div>
   </div>
 
   <!-- 総資産サマリー -->
@@ -594,18 +590,7 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
     <div class="setting-row"><div><div class="setting-label">スプレッドシートID</div><div class="setting-sub">連携先のGoogleスプレッドシート</div></div><div class="setting-value" style="font-size:10px" onclick="openGasUrlModal()" id="gas-url-status">未設定</div></div>
     <div style="margin-top:12px"><button class="btn btn-mint btn-sm" onclick="openGasUrlModal()">URL設定・接続テスト</button></div>
   </div>
-  <div style="margin-top:16px"></div>
-  <div class="card-label" style="margin-bottom:10px">過去データのインポート</div>
-  <div class="card">
-    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">資産残高の過去データをCSVまたはTSV形式で貼り付けてインポートできます。同じ月のデータが既にある場合はスキップされます。</div>
-    <div style="font-size:10px;color:var(--text3);margin-bottom:8px;font-family:'DM Mono',monospace">列順：日付 | 現金 | ゆうちょ | 楽天 | PayPay | 累計投資額 | 損益 | 利率 | 総資産 | 先月との差</div>
-    <textarea id="import-asset-text" class="form-input" rows="6" style="font-family:'DM Mono',monospace;font-size:11px;resize:vertical" placeholder="2021/3/23&#9;116452&#9;0&#9;1616009&#9;0&#9;0&#9;0&#9;0&#9;1732461&#9;0"></textarea>
-    <div style="margin-top:10px;display:flex;gap:8px">
-      <button class="btn btn-outline btn-sm" onclick="previewAssetImport()">プレビュー</button>
-      <button class="btn btn-primary btn-sm" id="asset-import-btn" onclick="executeAssetImport()" disabled>インポート実行</button>
-    </div>
-    <div id="asset-import-preview" style="margin-top:10px;display:none"></div>
-  </div>
+
 </div>
 </div>
 
@@ -843,89 +828,25 @@ async function loadLatestAsset() {
   const year  = parseInt(document.getElementById('rec-year').value);
   const month = parseInt(document.getElementById('rec-month').value);
   const yearMonth = `${year}/${String(month).padStart(2,'0')}`;
-
   document.getElementById('rec-period-label').textContent = `総資産（${year}年${month}月）`;
-
   if (!GAS_URL) {
     document.getElementById('rec-total').innerHTML = '¥—<span class="unit">円</span>';
     document.getElementById('rec-diff').textContent = '—';
     document.getElementById('rec-diff').style.color = 'var(--text3)';
     return;
   }
-
-  // 読込中表示
   document.getElementById('rec-total').innerHTML = '<span style="font-size:16px;color:var(--text3)">読込中…</span>';
-
   const data = await callGAS('getLatestAsset', { yearMonth });
-  console.log('[loadLatestAsset] yearMonth:', yearMonth, '→ response:', JSON.stringify(data));
-  if (!data?.ok) {
-    document.getElementById('rec-total').innerHTML = '¥—<span class="unit">円</span>';
-    return;
-  }
-
-  // 総資産表示
-  const total = data.total || 0;
-  document.getElementById('rec-total').innerHTML = '¥' + total.toLocaleString() + '<span class="unit">円</span>';
-
-  // 純資産内訳
-  const safe     = data.safeTotal  || 0;
-  const risk     = data.riskTotal  || 0;
-  const cumInvest= data.cumInvest  || 0;
-  const pnl      = data.pnl        || 0;
-
-  const safeEl = document.getElementById('rec-safe-total');
-  const riskEl = document.getElementById('rec-risk-total');
-  if (safeEl) safeEl.textContent = '¥' + safe.toLocaleString();
-  if (riskEl) riskEl.textContent = '¥' + risk.toLocaleString();
-
-  const safeDetail = document.getElementById('rec-safe-detail');
-  if (safeDetail) safeDetail.innerHTML = [
-    data.cash    ? `現金　¥${data.cash.toLocaleString()}`     : '',
-    data.yucho   ? `ゆうちょ　¥${data.yucho.toLocaleString()}` : '',
-    data.rakuten ? `楽天銀行　¥${data.rakuten.toLocaleString()}`: '',
-    data.paypay  ? `PayPay　¥${data.paypay.toLocaleString()}`  : '',
-  ].filter(Boolean).join('<br>') || '—';
-
-  const riskDetail = document.getElementById('rec-risk-detail');
-  if (riskDetail) {
-    const pnlColor = pnl >= 0 ? 'var(--mint)' : 'var(--red)';
-    const pnlSign  = pnl >= 0 ? '＋' : '－';
-    riskDetail.innerHTML =
-      `累計投資額　¥${cumInvest.toLocaleString()}<br>` +
-      `<span style="color:${pnlColor}">利益額　${pnlSign}¥${Math.abs(pnl).toLocaleString()}</span>`;
-  }
-
-  // 各口座の残高を入力欄にセット（未入力の場合のみ）
-  const setIfEmpty = (id, val) => {
-    const el = document.getElementById(id);
-    if (el && !el.value && val) el.value = val;
-  };
+  if (!data?.ok) { document.getElementById('rec-total').innerHTML = '¥—<span class="unit">円</span>'; return; }
+  applyLatestAsset(data);
+  // 入力欄に前回値をセット（未入力の場合のみ）
+  const setIfEmpty = (id, val) => { const el = document.getElementById(id); if (el && !el.value && val) el.value = val; };
   setIfEmpty('rec-input-cash',      data.cash);
   setIfEmpty('rec-input-yucho',     data.yucho);
   setIfEmpty('rec-input-rakuten',   data.rakuten);
   setIfEmpty('rec-input-paypay',    data.paypay);
   setIfEmpty('rec-input-invest',    data.monthlyInvest);
-  setIfEmpty('rec-input-sec-value', data.pnl);  // 「今の利益額」欄に損益をセット
-
-  // 前月比
-  const diffEl = document.getElementById('rec-diff');
-  const prevTotal = data.prevTotal;
-  if (prevTotal != null && prevTotal > 0) {
-    const diff = total - prevTotal;
-    if (diff > 0) {
-      diffEl.textContent = `＋ ¥${diff.toLocaleString()}`;
-      diffEl.style.color = 'var(--mint)';
-    } else if (diff < 0) {
-      diffEl.textContent = `▼ ¥${Math.abs(diff).toLocaleString()}`;
-      diffEl.style.color = 'var(--red)';
-    } else {
-      diffEl.textContent = '± ¥0';
-      diffEl.style.color = 'var(--text3)';
-    }
-  } else {
-    diffEl.textContent = '—';
-    diffEl.style.color = 'var(--text3)';
-  }
+  setIfEmpty('rec-input-sec-value', data.pnl);
 }
 
 // 概要
@@ -1041,8 +962,8 @@ async function onTrendYearChange() {
 
 async function onRateYearChange() {
   const year = parseInt(document.getElementById('rate-year').value);
-  if (GAS_URL && (!secData[year] || Object.keys(secData[year]).length === 0)) {
-    await refreshSecRate();
+  if (GAS_URL) {
+    await refreshSecRate();  // 年変更時は常にGASから再取得
   } else {
     renderRateChart();
   }
@@ -1164,39 +1085,40 @@ function renderRateChart(){
   const year=parseInt(document.getElementById('rate-year').value);
   const data=secData[year]||{};
   const months=Object.keys(data).map(Number).sort((a,b)=>a-b);
-  if(!months.length)return;
+  if(!months.length){
+    const barsEl=document.getElementById('rate-bars');
+    const labelsEl=document.getElementById('rate-labels');
+    const tbody=document.getElementById('rate-tbody');
+    if(barsEl)barsEl.innerHTML='<div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;color:var(--text3);font-size:12px">'+year+'年のデータがありません</div>';
+    if(labelsEl)labelsEl.innerHTML='';
+    if(tbody)tbody.innerHTML='';
+    return;
+  }
+  const riskAmounts=months.map(m=>data[m].riskTotal||0);
+  const maxRisk=Math.max(...riskAmounts,1);
   const rates=months.map(m=>{const d=data[m];return d.deposit>0?(d.pnl/d.deposit*100):0;});
-  const maxAbs=Math.max(...rates.map(r=>Math.abs(r)),1);
   const now=new Date();
   const currentMonth=(year===now.getFullYear())?now.getMonth()+1:null;
-  const halfH=50;
+  const barMaxH=84;
 
   const barsEl=document.getElementById('rate-bars');
   const labelsEl=document.getElementById('rate-labels');
   barsEl.innerHTML='';labelsEl.innerHTML='';
 
-  // ゼロライン
-  const zeroLine=document.createElement('div');
-  zeroLine.style.cssText=`position:absolute;left:0;right:0;top:${halfH}px;height:1.5px;background:var(--border2);z-index:1`;
-  barsEl.appendChild(zeroLine);
-
   months.forEach((m,idx)=>{
+    const risk=riskAmounts[idx];
     const rate=rates[idx];
-    const pct=(Math.abs(rate)/maxAbs)*halfH;
-    const isPos=rate>=0;
+    const barH=Math.max(2,Math.round(risk/maxRisk*barMaxH));
     const isCur=m===currentMonth;
     const col=document.createElement('div');
-    col.style.cssText=`flex:1;position:relative;height:${halfH*2}px`;
-    const barW='60%';
-    if(isPos){
-      col.innerHTML=`
-        <div style="position:absolute;bottom:${halfH}px;left:50%;transform:translateX(-50%);width:${barW};height:${pct}px;background:var(--mint);border-radius:3px 3px 0 0;min-height:${rate!==0?2:0}px;opacity:${isCur?1:0.55}"></div>
-        <div style="position:absolute;bottom:${halfH+pct+2}px;left:50%;transform:translateX(-50%);font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:var(--mint);white-space:nowrap;text-align:center">${rate>0?'+':''}${rate.toFixed(1)}%</div>`;
-    } else {
-      col.innerHTML=`
-        <div style="position:absolute;top:${halfH}px;left:50%;transform:translateX(-50%);width:${barW};height:${pct}px;background:var(--red);border-radius:0 0 3px 3px;min-height:${rate!==0?2:0}px;opacity:${isCur?1:0.55}"></div>
-        <div style="position:absolute;top:${halfH+pct+2}px;left:50%;transform:translateX(-50%);font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:var(--red);white-space:nowrap;text-align:center">${rate.toFixed(1)}%</div>`;
-    }
+    col.style.cssText=`flex:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${barMaxH+20}px`;
+    const color=rate>=0?'var(--mint)':'var(--red)';
+    const rateStr=(rate>=0?'+':'')+rate.toFixed(1)+'%';
+    const man=Math.round(risk/10000);
+    col.innerHTML=`
+      <div style="font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${color};margin-bottom:2px;white-space:nowrap">${rateStr}</div>
+      <div style="width:70%;height:${barH}px;background:${color};border-radius:3px 3px 0 0;opacity:${isCur?1:0.55}"></div>
+      <div style="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);margin-top:3px">¥${man}万</div>`;
     barsEl.appendChild(col);
     const lbl=document.createElement('div');
     lbl.style.cssText=`flex:1;text-align:center;font-size:9px;font-family:'DM Mono',monospace;color:${isCur?'var(--accent)':'var(--text3)'};font-weight:${isCur?700:400};margin-top:2px`;
@@ -1213,7 +1135,7 @@ function renderRateChart(){
     const rateStr=(rate>=0?'+':'')+rate.toFixed(2)+'%';
     tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}">
       <td>${m}月</td>
-      <td class="num">¥${d.deposit.toLocaleString()}</td>
+      <td class="num">¥${(d.riskTotal||0).toLocaleString()}</td>
       <td class="num ${rate>=0?'pos':'neg'}">${rate>=0?'＋':''}¥${Math.abs(d.pnl).toLocaleString()}</td>
       <td class="num ${rateClass}">${rateStr}</td></tr>`;
   });
@@ -1410,7 +1332,6 @@ async function submitAddAccount() {
     await callGAS('addAccount', { account, yearMonth, balance });
   }
 }
-function completeReconcile(){const el=document.getElementById('rec-status');el.className='reconcile-status status-done';el.textContent='✓ 照合済み';showToast('✅ 照合を完了しました');}
 
 // ── GAS URL（他の関数より先に宣言）──
 let GAS_URL = localStorage.getItem('gas_url') || '';
@@ -1426,16 +1347,53 @@ refreshSummaryLocal();
 onRecPeriodChange();
 initEntryScreen();
 
-// GAS URL設定済み表示 & 初期データ取得
+// GAS URL設定済み表示 & 初期データ取得（1リクエストで一括取得）
 window.addEventListener('load', async () => {
   const el = document.getElementById('gas-url-status');
   if (GAS_URL && el) el.textContent = '設定済';
   if (GAS_URL) {
-    try { await syncCategories(); } catch(e) { console.warn('[init] syncCategories failed', e); }
-    try { await refreshSummary();  } catch(e) { console.warn('[init] refreshSummary failed', e); }
-    try { await refreshTrend();    } catch(e) { console.warn('[init] refreshTrend failed', e); }
-    try { await refreshSecRate();  } catch(e) { console.warn('[init] refreshSecRate failed', e); }
-    try { await loadLatestAsset(); } catch(e) { console.warn('[init] loadLatestAsset failed', e); }
+    try {
+      const year     = parseInt(document.getElementById('sum-year').value);
+      const month    = parseInt(document.getElementById('sum-month').value);
+      const trendYear= parseInt(document.getElementById('trend-year').value);
+      const yearMonth= `${year}/${String(month).padStart(2,'0')}`;
+      const d = await callGAS('getInitialData', { year, month, yearMonth });
+      if (!d?.ok) return;
+
+      // カテゴリ
+      if (d.categories?.ok && Array.isArray(d.categories.categories)) {
+        categories = d.categories.categories;
+        renderCategories();
+      }
+
+      // サマリー
+      applySummaryData(d.summary, d.prevSummary);
+
+      // 資産推移
+      if (d.trend?.ok && d.trend.data?.length) {
+        assetData[trendYear] = {};
+        d.trend.data.forEach(r => {
+          const m = parseInt(r.yearMonth.split('/')[1]);
+          assetData[trendYear][m] = { bank: r.bank, sec: r.sec, cash: r.cash };
+        });
+        renderTrend();
+      }
+
+      // 証券利益率
+      if (d.secRate?.ok && d.secRate.data?.length) {
+        const rYear = parseInt(document.getElementById('rate-year').value);
+        secData[rYear] = {};
+        d.secRate.data.forEach(r => {
+          const m = parseInt(r.yearMonth.split('/')[1]);
+          secData[rYear][m] = { deposit: r.cumDeposit, pnl: r.cumPnl, riskTotal: r.riskTotal };
+        });
+        renderRateChart();
+      }
+
+      // 資産照合
+      if (d.latestAsset?.ok) applyLatestAsset(d.latestAsset);
+
+    } catch(e) { console.warn('[init] getInitialData failed', e); }
   }
 });
 
@@ -1780,124 +1738,7 @@ async function callGAS(action, params = {}) {
 
 // ── 過去資産データインポート ──
 // 元データ列：日付 | お財布 | 袋 | ゆうちょ | 楽天 | 銀行合計 | PayPay | 投資額 | 損益 | 利率 | 実質 | 合計 | 家計簿 | 誤差 | 総資産 | 先月との差
-let _assetImportRows = [];
 
-function parseAssetImportText(text) {
-  const lines = text.trim().split('\n').filter(l => l.trim());
-  const rows = [];
-  let lastYear = '';
-
-  lines.forEach(line => {
-    const cols = line.split('\t').map(c => c.trim().replace(/,/g, '').replace(/%/g, ''));
-
-    // 年を含む行の判定（「2021年」「2022年」など）
-    if (/^\d{4}年?$/.test(cols[0])) {
-      lastYear = cols[0].replace('年', '');
-      // 同じ行に日付データも続く場合がある
-      if (!cols[1] || !/^\d/.test(cols[1])) return;
-      cols.shift(); // 年列を除いて処理継続
-    }
-
-    // 日付列の解析
-    let rawDate = cols[0] || '';
-    if (!rawDate || !/\d/.test(rawDate)) return;
-
-    let dateStr = '';
-    if (/^\d{4}\//.test(rawDate)) {
-      // 既に yyyy/mm/dd 形式
-      dateStr = rawDate;
-      lastYear = rawDate.split('/')[0];
-    } else if (/^\d{1,2}\/\d{1,2}$/.test(rawDate)) {
-      // m/d 形式 → lastYear を補完
-      const [m, d] = rawDate.split('/');
-      dateStr = `${lastYear}/${m.padStart(2,'0')}/${d.padStart(2,'0')}`;
-    } else {
-      return;
-    }
-
-    const n = i => Number(cols[i] || 0) || 0;
-
-    // 列マッピング（元データ順）
-    // cols[0]=日付 [1]=お財布 [2]=袋 [3]=ゆうちょ [4]=楽天 [5]=銀行合計
-    // [6]=PayPay [7]=投資額 [8]=損益 [9]=利率 [10]=実質 [11]=合計
-    // [12]=家計簿 [13]=誤差 [14]=総資産 [15]=先月との差
-    const cash      = n(1) + n(2);  // お財布＋袋
-    const yucho     = n(3);
-    const rakuten   = n(4);
-    const paypay    = n(6);
-    const cumInvest = n(7);
-    const pnl       = n(8);
-    const rate      = Number(cols[9] || 0) || 0;
-    const total     = n(14);
-    const prevDiff  = n(15);
-
-    rows.push({ date: dateStr, cash, yucho, rakuten, paypay, cumInvest, pnl, rate, total, prevDiff });
-  });
-
-  return rows;
-}
-
-function previewAssetImport() {
-  const text = document.getElementById('import-asset-text').value;
-  if (!text.trim()) { showToast('⚠ データを貼り付けてください', true); return; }
-
-  _assetImportRows = parseAssetImportText(text);
-  const previewEl = document.getElementById('asset-import-preview');
-  const btn = document.getElementById('asset-import-btn');
-
-  if (!_assetImportRows.length) {
-    previewEl.style.display = 'block';
-    previewEl.innerHTML = '<div style="color:var(--red);font-size:12px">⚠ パースできるデータがありませんでした。列がタブ区切りか確認してください</div>';
-    btn.disabled = true;
-    return;
-  }
-
-  previewEl.style.display = 'block';
-  previewEl.innerHTML = `
-    <div style="font-size:11px;color:var(--mint);font-weight:700;margin-bottom:8px">✓ ${_assetImportRows.length}件を検出</div>
-    <div style="overflow-x:auto">
-      <table class="preview-table">
-        <thead><tr><th>日付</th><th style="text-align:right">現金</th><th style="text-align:right">ゆうちょ</th><th style="text-align:right">楽天</th><th style="text-align:right">累計投資</th><th style="text-align:right">損益</th><th style="text-align:right">総資産</th></tr></thead>
-        <tbody>${_assetImportRows.slice(0,5).map(r =>
-          `<tr>
-            <td>${r.date}</td>
-            <td class="amt">¥${r.cash.toLocaleString()}</td>
-            <td class="amt">¥${r.yucho.toLocaleString()}</td>
-            <td class="amt">¥${r.rakuten.toLocaleString()}</td>
-            <td class="amt">¥${r.cumInvest.toLocaleString()}</td>
-            <td class="amt" style="color:${r.pnl>=0?'var(--mint)':'var(--red)'}">${r.pnl>=0?'＋':''}¥${r.pnl.toLocaleString()}</td>
-            <td class="amt">¥${r.total.toLocaleString()}</td>
-          </tr>`
-        ).join('')}
-        ${_assetImportRows.length > 5 ? `<tr><td colspan="7" style="text-align:center;color:var(--text3)">…他${_assetImportRows.length-5}件</td></tr>` : ''}
-        </tbody>
-      </table>
-    </div>`;
-  btn.disabled = false;
-}
-
-async function executeAssetImport() {
-  if (!_assetImportRows.length) { showToast('⚠ まずプレビューしてください', true); return; }
-  if (!GAS_URL) { showToast('⚠ GAS URLが未設定です', true); return; }
-
-  const btn = document.getElementById('asset-import-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ 送信中…';
-
-  const res = await callGAS('importHistoricalAssets', { rows: _assetImportRows });
-
-  btn.disabled = false;
-  btn.textContent = 'インポート実行';
-
-  if (res?.ok) {
-    showToast(`✅ ${res.added}件をインポートしました（${res.skipped}件スキップ）`);
-    document.getElementById('asset-import-preview').innerHTML +=
-      `<div style="margin-top:8px;font-size:11px;color:var(--mint)">✅ ${res.added}件追加 / ${res.skipped}件スキップ（既存データ）</div>`;
-    _assetImportRows = [];
-  } else {
-    showToast('⚠ インポートに失敗しました: ' + (res?.error || '不明'), true);
-  }
-}
 
 // ── GAS URL設定モーダル ──
 function openGasUrlModal() {
@@ -2010,27 +1851,18 @@ function getImportYearMonth() {
   return { year: parseInt(y), month: parseInt(m), ym: `${y}/${String(m).padStart(2, '0')}` };
 }
 
-function onUploadAreaClick(e) {
-  // input要素自体のクリックは無視（二重発火防止）
-  if (e.target.id === 'csv-input') return;
-  const cardType = document.getElementById('card-select').value;
-  if (!cardType) {
-    showToast('⚠ 先にカード種別を選択してください', true);
-    // カード選択欄をハイライト
-    const sel = document.getElementById('card-select');
-    sel.style.borderColor = 'var(--red)';
-    setTimeout(() => sel.style.borderColor = '', 2000);
-    return;
-  }
-  // input をリセットしてから開く（同じファイルを再選択できるよう）
-  const input = document.getElementById('csv-input');
-  input.value = '';
-  input.click();
-}
-
 // ── ファイル入力振り分け（CSV or PDF）──
 async function handleFileInput(input) {
   if (!input.files.length) return;
+  const cardType = document.getElementById('card-select').value;
+  if (!cardType) {
+    showToast('⚠ 先にカード種別を選択してください', true);
+    const sel = document.getElementById('card-select');
+    sel.style.borderColor = 'var(--red)';
+    setTimeout(() => sel.style.borderColor = '', 2000);
+    input.value = '';
+    return;
+  }
   const file = input.files[0];
   const isPdf = file.name.toLowerCase().endsWith('.pdf');
   if (isPdf) {
@@ -2618,9 +2450,6 @@ async function submitCheckAdjust(amount, yearMonth) {
 // ── 照合完了（GAS送信）──
 async function completeReconcileGAS() {
   const yearMonth = getCurrentYearMonth('rec');
-  const el = document.getElementById('rec-status');
-  el.className = 'reconcile-status status-done';
-  el.textContent = '✓ 照合済み';
   if (!GAS_URL) { showToast('✅ 照合を完了しました（ローカル）'); return; }
   const result = await callGAS('completeReconcile', { yearMonth });
   if (result?.ok) showToast('✅ 照合を完了しました');
@@ -2646,40 +2475,25 @@ async function saveCategoriesGAS() {
   await callGAS('saveCategories', { categories });
 }
 
-// ── サマリー・推移を GAS から取得して画面更新 ──
-async function refreshSummary() {
-  const year  = parseInt(document.getElementById('sum-year').value);
-  const month = parseInt(document.getElementById('sum-month').value);
-
-  document.getElementById('sum-total').textContent = '読込中…';
-
-  const data = await callGAS('getSummary', { year, month });
+// ── データ適用ヘルパー（getInitialData / refreshSummary 共通） ──
+function applySummaryData(data, prevData) {
   if (!data?.ok) {
     document.getElementById('sum-total').textContent = '⚠ 取得失敗';
     return;
   }
-
-  const expense = data.grandTotal   || 0;
-  const income  = data.totalIncome  || 0;
-  const balance = data.balance      || 0;
-
+  const expense = data.grandTotal  || 0;
+  const income  = data.totalIncome || 0;
+  const balance = data.balance     || 0;
   document.getElementById('sum-total').textContent  = '¥' + expense.toLocaleString();
   document.getElementById('sum-income').textContent = '¥' + income.toLocaleString();
   const balEl = document.getElementById('sum-balance');
   balEl.textContent = (balance >= 0 ? '＋' : '－') + '¥' + Math.abs(balance).toLocaleString();
   balEl.style.color = balance >= 0 ? 'var(--mint)' : 'var(--red)';
-
-  // 内訳
   const keyMap = { rakuten: 'sum-rakuten', smbc: 'sum-smbc', paypay: 'sum-paypay', cash: 'sum-cash' };
   Object.entries(keyMap).forEach(([key, elId]) => {
     const el = document.getElementById(elId);
     if (el) el.textContent = '¥' + (data.breakdown[key]?.total || 0).toLocaleString();
   });
-
-  // 前月比（支出ベース）
-  const prevMonth = month === 1 ? 12 : month - 1;
-  const prevYear  = month === 1 ? year - 1 : year;
-  const prevData  = await callGAS('getSummary', { year: prevYear, month: prevMonth });
   const diffEl = document.getElementById('sum-diff');
   if (prevData?.ok && prevData.grandTotal > 0) {
     const diff = expense - prevData.grandTotal;
@@ -2689,8 +2503,6 @@ async function refreshSummary() {
   } else {
     diffEl.textContent = '—'; diffEl.style.color = 'var(--text3)';
   }
-
-  // カテゴリ別バー
   const barsEl = document.getElementById('sum-category-bars');
   const catEntries = Object.entries(data.categoryTotals || {}).sort((a, b) => b[1] - a[1]);
   if (!catEntries.length) {
@@ -2706,6 +2518,59 @@ async function refreshSummary() {
       <div class="bar-value">¥${amt.toLocaleString()}</div>
     </div>`
   ).join('');
+}
+
+function applyLatestAsset(data) {
+  if (!data?.ok) return;
+  const total = data.total || 0;
+  document.getElementById('rec-total').innerHTML = '¥' + total.toLocaleString() + '<span class="unit">円</span>';
+  const safe = data.safeTotal || 0;
+  const risk = data.riskTotal || 0;
+  const cumInvest = data.cumInvest || 0;
+  const pnl = data.pnl || 0;
+  const safeEl = document.getElementById('rec-safe-total');
+  const riskEl = document.getElementById('rec-risk-total');
+  if (safeEl) safeEl.textContent = '¥' + safe.toLocaleString();
+  if (riskEl) riskEl.textContent = '¥' + risk.toLocaleString();
+  const safeDetail = document.getElementById('rec-safe-detail');
+  if (safeDetail) safeDetail.innerHTML = [
+    data.cash    ? `現金　¥${data.cash.toLocaleString()}`      : '',
+    data.yucho   ? `ゆうちょ　¥${data.yucho.toLocaleString()}` : '',
+    data.rakuten ? `楽天銀行　¥${data.rakuten.toLocaleString()}`  : '',
+    data.paypay  ? `PayPay　¥${data.paypay.toLocaleString()}`  : '',
+  ].filter(Boolean).join('<br>') || '—';
+  const riskDetail = document.getElementById('rec-risk-detail');
+  if (riskDetail) {
+    const pnlColor = pnl >= 0 ? 'var(--mint)' : 'var(--red)';
+    const pnlSign  = pnl >= 0 ? '＋' : '－';
+    riskDetail.innerHTML =
+      `累計投資額　¥${cumInvest.toLocaleString()}<br>` +
+      `<span style="color:${pnlColor}">利益額　${pnlSign}¥${Math.abs(pnl).toLocaleString()}</span>`;
+  }
+  const diffEl = document.getElementById('rec-diff');
+  const prevTotal = data.prevTotal;
+  if (prevTotal != null && prevTotal > 0) {
+    const diff = total - prevTotal;
+    if (diff > 0)      { diffEl.textContent = `＋ ¥${diff.toLocaleString()}`;           diffEl.style.color = 'var(--mint)'; }
+    else if (diff < 0) { diffEl.textContent = `▼ ¥${Math.abs(diff).toLocaleString()}`; diffEl.style.color = 'var(--red)'; }
+    else               { diffEl.textContent = '± ¥0'; diffEl.style.color = 'var(--text3)'; }
+  } else {
+    diffEl.textContent = '—'; diffEl.style.color = 'var(--text3)';
+  }
+}
+
+// ── サマリー・推移を GAS から取得して画面更新 ──
+async function refreshSummary() {
+  const year  = parseInt(document.getElementById('sum-year').value);
+  const month = parseInt(document.getElementById('sum-month').value);
+  document.getElementById('sum-total').textContent = '読込中…';
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear  = month === 1 ? year - 1 : year;
+  const [data, prevData] = await Promise.all([
+    callGAS('getSummary', { year, month }),
+    callGAS('getSummary', { year: prevYear, month: prevMonth }),
+  ]);
+  applySummaryData(data, prevData);
 }
 
 async function refreshTrend() {
@@ -2729,14 +2594,24 @@ async function refreshTrend() {
 async function refreshSecRate() {
   const year = parseInt(document.getElementById('rate-year').value);
   const data = await callGAS('getSecRate', { year });
-  if (!data?.ok || !data.data.length) return;
+  if (!data?.ok || !data.data.length) {
+    // データなし → グラフをクリアしてメッセージ表示
+    const barsEl = document.getElementById('rate-bars');
+    const labelsEl = document.getElementById('rate-labels');
+    const tbody = document.getElementById('rate-tbody');
+    if (barsEl) barsEl.innerHTML = '<div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;color:var(--text3);font-size:12px">'+year+'年のデータがありません</div>';
+    if (labelsEl) labelsEl.innerHTML = '';
+    if (tbody) tbody.innerHTML = '';
+    return;
+  }
 
   secData[year] = {};
   data.data.forEach(d => {
     const m = parseInt(d.yearMonth.split('/')[1]);
     secData[year][m] = {
-      deposit: d.cumDeposit,  // 累計投資額
-      pnl:     d.cumPnl,      // 損益
+      deposit:    d.cumDeposit,  // 累計投資額
+      pnl:        d.cumPnl,      // 損益
+      riskTotal:  d.riskTotal,   // リスク資産額
     };
   });
   renderRateChart();
