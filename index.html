@@ -2005,23 +2005,20 @@ function parseRakutenPDF(lines) {
 
   lines.forEach(line => {
     const cols = line.split('\t').map(s => s.trim());
-    // 日付で始まる行を明細行と判断
-    const dateMatch = cols[0].match(dateRe);
+    const dateMatch = cols[0]?.match(dateRe);
     if (!dateMatch) return;
 
-    const date  = dateMatch[1];
-    const shop  = cols[1] || '';
-    // 利用金額: cols[4]（手数料/利息の前）
-    let amount = 0;
-    for (let i = 2; i < cols.length; i++) {
-      const v = parseAmount(cols[i]);
-      if (v > 0 && v < 10000000) { amount = v; break; }
-    }
-    // 楽天証券積立・楽天キャッシュチャージは支出として記録
+    const date = dateMatch[1];
+    const shop = cols[1] || '';
+
+    // 楽天PDFは cols[4] が利用金額
+    const amount = parseAmount(cols[4]);
+
     if (date && shop && amount > 0) {
       rows.push({ date, shop, amount });
     }
   });
+
   return rows;
 }
 
