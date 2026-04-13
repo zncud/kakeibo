@@ -13,6 +13,8 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <!-- フォント -->
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root {
   --bg:#fdf6f0;--bg2:#fef9f5;--surface:#ffffff;
@@ -348,7 +350,7 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
 <div class="container">
   <div style="margin-bottom:16px">
     <div class="screen-title">明細取込</div>
-    <div class="screen-sub">CSV UPLOAD</div>
+    <div class="screen-sub">CSV / PDF UPLOAD</div>
   </div>
   <div class="form-group">
     <label class="form-label">取込先を選択</label>
@@ -366,9 +368,9 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
   <div class="dup-warning" id="dup-warning">⚠️ このファイルはすでに取込済みの可能性があります（同じファイル名を検出）。重複しないようご確認ください。</div>
   <div class="upload-area" onclick="onUploadAreaClick(event)">
     <div class="upload-icon">📂</div>
-    <div class="upload-text">CSVファイルをタップして選択</div>
-    <div class="upload-hint">各サービスのマイページからダウンロードしたCSV</div>
-    <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="handleCSVReal(this)">
+    <div class="upload-text">CSV または PDF をタップして選択</div>
+    <div class="upload-hint">各サービスのマイページからDLしたCSV・PDF</div>
+    <input type="file" id="csv-input" accept=".csv,.pdf" style="display:none" onchange="handleFileInput(this)">
   </div>
   <div class="card" id="csv-preview" style="display:none">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -793,6 +795,16 @@ async function submitAllBalances() {
   }));
 
   if (!GAS_URL) {
+    // ローカルに資産スナップショットを保存
+    const bank = yucho + rakuten + paypay;
+    const sec  = secValue;
+    const snapshots = JSON.parse(localStorage.getItem('asset_snapshots') || '{}');
+    if (!snapshots[year]) snapshots[year] = {};
+    snapshots[year][month] = { bank, sec, cash };
+    localStorage.setItem('asset_snapshots', JSON.stringify(snapshots));
+    // assetData を更新してグラフを再描画
+    loadAssetDataFromLocal();
+    renderTrend();
     showToast(`✅ ${yearMonth} の残高を登録しました（ローカル）`);
     return;
   }
@@ -1019,6 +1031,8 @@ async function onTrendYearChange() {
   if (GAS_URL && (!assetData[year] || Object.keys(assetData[year]).length === 0)) {
     await refreshTrend();
   } else {
+    // GASなし：ローカルから再読込して描画
+    if (!GAS_URL) loadAssetDataFromLocal();
     renderTrend();
   }
 }
@@ -1087,6 +1101,24 @@ function refreshSummaryLocal() {
 // ── 資産データ ──
 const assetData = {};
 
+// ローカルストレージから assetData を全年分読み込む
+function loadAssetDataFromLocal() {
+  const snapshots = JSON.parse(localStorage.getItem('asset_snapshots') || '{}');
+  Object.keys(snapshots).forEach(y => {
+    const year = parseInt(y);
+    assetData[year] = {};
+    Object.keys(snapshots[y]).forEach(m => {
+      const month = parseInt(m);
+      const s = snapshots[y][m];
+      assetData[year][month] = {
+        bank: s.bank || 0,
+        sec:  s.sec  || 0,
+        cash: s.cash || 0,
+      };
+    });
+  });
+}
+
 // 証券損益データ（累計入金額・累計損益）
 const secData = {};
 
@@ -1094,7 +1126,13 @@ function renderTrend(){
   const year=parseInt(document.getElementById('trend-year').value);
   const data=assetData[year]||{};
   const months=Object.keys(data).map(Number).sort((a,b)=>a-b);
-  if(!months.length)return;
+  const area=document.getElementById('trend-area');
+  const tbody=document.getElementById('trend-tbody');
+  if(!months.length){
+    area.innerHTML='<div style="width:100%;text-align:center;padding:24px 0;color:var(--text3);font-size:12px">'+year+'年のデータがありません<br><span style="font-size:10px;font-family:\'DM Mono\',monospace">資産照合で残高を登録すると表示されます</span></div>';
+    if(tbody)tbody.innerHTML='';
+    return;
+  }
   const totals=months.map(m=>data[m].bank+data[m].sec+data[m].cash);
   const maxTotal=Math.max(...totals);
   const now=new Date();
@@ -1380,6 +1418,7 @@ let GAS_URL = localStorage.getItem('gas_url') || '';
 renderCategories();
 initYearSelectors();
 renderRecInputCard();
+loadAssetDataFromLocal();
 renderTrend();
 renderRateChart();
 refreshSummaryLocal();
@@ -1986,6 +2025,155 @@ function onUploadAreaClick(e) {
   const input = document.getElementById('csv-input');
   input.value = '';
   input.click();
+}
+
+// ── ファイル入力振り分け（CSV or PDF）──
+async function handleFileInput(input) {
+  if (!input.files.length) return;
+  const file = input.files[0];
+  const isPdf = file.name.toLowerCase().endsWith('.pdf');
+  if (isPdf) {
+    await handlePDFFile(file);
+  } else {
+    await handleCSVReal(input);
+  }
+}
+
+// ── PDF取込 ──
+async function handlePDFFile(file) {
+  const cardType = document.getElementById('card-select').value;
+  if (!cardType) { showToast('⚠ カード種別を先に選択してください', true); return; }
+
+  showToast('📄 PDF解析中…');
+
+  try {
+    // PDF.jsでテキスト抽出
+    if (typeof pdfjsLib === 'undefined') {
+      showToast('⚠ PDF.jsの読み込みに失敗しました', true); return;
+    }
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      // アイテムをY座標でグループ化して行ごとに結合
+      const items = content.items;
+      const lines = {};
+      items.forEach(item => {
+        const y = Math.round(item.transform[5]);
+        if (!lines[y]) lines[y] = [];
+        lines[y].push(item.str);
+      });
+      // Y座標降順（上から下）で行を結合
+      Object.keys(lines).sort((a,b) => b-a).forEach(y => {
+        fullText += lines[y].join('\t') + '\n';
+      });
+    }
+
+    const rows = parsePDF(fullText, cardType, file.name);
+    if (!rows.length) {
+      showToast('⚠ データが見つかりません。対応フォーマットか確認してください', true);
+      console.log('[PDF] 抽出テキスト:', fullText.slice(0, 500));
+      return;
+    }
+
+    const filename = file.name;
+    initImportMonthSelector();
+    autoDetectImportMonth(rows, cardType);
+    updatePreview(rows, cardType, filename);
+    document.getElementById('csv-preview').style.display = 'block';
+    window._pendingImport = { cardType, filename, rows };
+    showToast(`✅ ${rows.length}件を検出しました`);
+
+  } catch(e) {
+    console.error('[PDF] error:', e);
+    showToast('⚠ PDF解析エラー: ' + e.message, true);
+  }
+}
+
+// ── PDFパーサー ──
+function parsePDF(text, cardType, filename) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+  if (cardType === 'rakuten') {
+    return parseRakutenPDF(lines);
+  } else if (cardType === 'smbc') {
+    return parseSMBCPDF(lines);
+  }
+  return [];
+}
+
+// 楽天カードPDFパーサー
+// 行フォーマット: "2026/03/25\tSuica（携帯決済）\t本人*\t1回払い\t1,000\t0\t1,000\t1,000\t0"
+function parseRakutenPDF(lines) {
+  const rows = [];
+  const dateRe = /^(\d{4}\/\d{2}\/\d{2})/;
+
+  lines.forEach(line => {
+    const cols = line.split('\t').map(s => s.trim());
+    // 日付で始まる行を明細行と判断
+    const dateMatch = cols[0].match(dateRe);
+    if (!dateMatch) return;
+
+    const date  = dateMatch[1];
+    const shop  = cols[1] || '';
+    // 利用金額: cols[4]（手数料/利息の前）
+    let amount = 0;
+    for (let i = 2; i < cols.length; i++) {
+      const v = parseAmount(cols[i]);
+      if (v > 0 && v < 10000000) { amount = v; break; }
+    }
+    // 楽天証券積立・楽天キャッシュチャージは支出として記録
+    if (date && shop && amount > 0) {
+      rows.push({ date, shop, amount });
+    }
+  });
+  return rows;
+}
+
+// 三井住友カードPDFパーサー
+// 行フォーマット: "26/02/28\t大阪ガス利用料金\t413\t１\t１\t413"
+function parseSMBCPDF(lines) {
+  const rows = [];
+  // YY/MM/DD形式
+  const dateRe = /^(\d{2})\/(\d{2})\/(\d{2})/;
+
+  lines.forEach(line => {
+    const cols = line.split('\t').map(s => s.trim());
+    const dateMatch = cols[0].match(dateRe);
+    if (!dateMatch) return;
+
+    // YY/MM/DD → YYYY/MM/DD
+    const year  = '20' + dateMatch[1];
+    const month = dateMatch[2];
+    const day   = dateMatch[3];
+    const date  = `${year}/${month}/${day}`;
+    const shop  = cols[1] || '';
+
+    // 金額: cols[2]が利用金額
+    let amount = parseAmount(cols[2]);
+    if (!amount) {
+      // colsをスキャン
+      for (let i = 2; i < Math.min(cols.length, 6); i++) {
+        const v = parseAmount(cols[i]);
+        if (v > 0) { amount = v; break; }
+      }
+    }
+
+    if (date && shop && amount > 0 && !shop.includes('ご利用') && !shop.includes('お支払')) {
+      // 引落日を計算（SMBCは翌月10日）
+      const d = new Date(`${year}-${month}-${day}`);
+      const billing = new Date(d.getFullYear(), d.getMonth() + 1, 10);
+      const billingDate = `${billing.getFullYear()}/${String(billing.getMonth()+1).padStart(2,'0')}/${String(billing.getDate()).padStart(2,'0')}`;
+      rows.push({ date: billingDate, shop, amount });
+    }
+  });
+  return rows;
 }
 
 // ── CSV取込（実際のファイル読み込み＋GAS送信）──
