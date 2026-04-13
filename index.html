@@ -1888,7 +1888,11 @@ async function handlePDFFile(file) {
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     const buffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    const pdf = await pdfjsLib.getDocument({
+      data: buffer,
+      cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+      cMapPacked: true,
+    }).promise;
 
     let fullText = '';
     for (let i = 1; i <= pdf.numPages; i++) {
