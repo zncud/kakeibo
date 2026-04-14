@@ -321,7 +321,7 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
       <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--accent)"></div>現金</div>
     </div>
     <table class="asset-table">
-      <thead><tr><th>月</th><th style="text-align:right">合計</th><th style="text-align:right">前月比</th><th style="text-align:right">銀行</th><th style="text-align:right">証券</th><th style="text-align:right">現金</th></tr></thead>
+      <thead><tr><th>月</th><th style="text-align:right">銀行</th><th style="text-align:right">証券</th><th style="text-align:right">現金</th><th style="text-align:right">合計</th><th style="text-align:right">前月比</th></tr></thead>
       <tbody id="trend-tbody"></tbody>
     </table>
   </div>
@@ -1145,12 +1145,12 @@ function renderTrend(){
   tbody.innerHTML='';
   months.forEach((m,idx)=>{
     const d=data[m];const total=d.bank+d.sec+d.cash;
-    const prev=idx>0?totals[idx-1]:null;
-    const diff=prev!==null?total-prev:null;
+    const prevTotal=idx>0?totals[idx-1]:prevYearLastTotal;
+    const diff=prevTotal!==null?total-prevTotal:null;
     const isCur=m===currentMonth;
     const diffHtml=diff===null?'<td class="num" style="color:var(--text3)">—</td>'
       :`<td class="num ${diff>=0?'pos':'neg'}">${diff>=0?'＋':'－'}¥${Math.abs(diff).toLocaleString()}</td>`;
-    tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}"><td>${m}月</td><td class="num">¥${total.toLocaleString()}</td>${diffHtml}<td class="num">¥${d.bank.toLocaleString()}</td><td class="num">¥${d.sec.toLocaleString()}</td><td class="num">¥${d.cash.toLocaleString()}</td></tr>`;
+    tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}"><td style="white-space:nowrap">${m}月</td><td class="num">¥${d.bank.toLocaleString()}</td><td class="num">¥${d.sec.toLocaleString()}</td><td class="num">¥${d.cash.toLocaleString()}</td><td class="num">¥${total.toLocaleString()}</td>${diffHtml}</tr>`;
   });
 }
 
@@ -1535,9 +1535,18 @@ function applyCache() {
       assetData[trendYear] = {};
       cache.trend.data.forEach(r => {
         const m = parseInt(r.yearMonth.split('/')[1]);
-        assetData[trendYear][m] = { bank: r.bank, sec: r.sec, cash: r.cash };
+        assetData[trendYear][m] = { bank: r.bank, sec: r.sec, cash: r.cash, safe: r.safe || (r.bank + r.cash) };
       });
+      if (cache.prevTrend?.ok && cache.prevTrend.data?.length) {
+        const prevYear = cache.prevTrend.year || (trendYear - 1);
+        assetData[prevYear] = {};
+        cache.prevTrend.data.forEach(r => {
+          const m = parseInt(r.yearMonth.split('/')[1]);
+          assetData[prevYear][m] = { bank: r.bank, sec: r.sec, cash: r.cash, safe: r.safe || (r.bank + r.cash) };
+        });
+      }
       renderTrend();
+      renderCashTrend();
     }
     // 証券利益率
     if (cache.secRate?.ok && cache.secRate.data?.length) {
@@ -1644,23 +1653,17 @@ window.addEventListener('load', async () => {
           assetData[trendYear][m] = { bank: r.bank, sec: r.sec, cash: r.cash, safe: r.safe || (r.bank + r.cash) };
         });
       }
-      // 前年データも取得して初月の前月比を計算できるようにする
-      if (GAS_URL && (!assetData[trendYear-1] || !Object.keys(assetData[trendYear-1]).length)) {
-        callGAS('getAssetTrend', { year: trendYear - 1 }).then(prev => {
-          if (prev?.ok && prev.data?.length) {
-            assetData[trendYear-1] = {};
-            prev.data.forEach(r => {
-              const m = parseInt(r.yearMonth.split('/')[1]);
-              assetData[trendYear-1][m] = { bank: r.bank, sec: r.sec, cash: r.cash, safe: r.safe || (r.bank + r.cash) };
-            });
-          }
-          renderTrend();
-          renderCashTrend();
+      // 前年データ（getInitialData に含まれるので追加リクエスト不要）
+      if (d.prevTrend?.ok && d.prevTrend.data?.length) {
+        const prevYear = d.prevTrend.year || (trendYear - 1);
+        assetData[prevYear] = {};
+        d.prevTrend.data.forEach(r => {
+          const m = parseInt(r.yearMonth.split('/')[1]);
+          assetData[prevYear][m] = { bank: r.bank, sec: r.sec, cash: r.cash, safe: r.safe || (r.bank + r.cash) };
         });
-      } else {
-        renderTrend();
-        renderCashTrend();
       }
+      renderTrend();
+      renderCashTrend();
       // 証券利益率
       if (d.secRate?.ok && d.secRate.data?.length) {
         const rYear = parseInt(document.getElementById('rate-year').value);
@@ -1686,6 +1689,7 @@ window.addEventListener('load', async () => {
         summary: d.summary,
         prevSummary: d.prevSummary,
         trend: d.trend,
+        prevTrend: d.prevTrend,
         secRate: d.secRate,
         latestAsset: d.latestAsset,
         categories: d.categories,
