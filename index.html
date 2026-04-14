@@ -330,7 +330,8 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
   <div class="card" style="border-color:#fdd8c8">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div class="card-label" style="margin-bottom:0">🏦 純資産推移</div>
-      <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace" id="cash-trend-year-label"></span>
+      <select class="period-select" style="font-size:11px;padding:4px 10px" id="cash-trend-year" onchange="onCashTrendYearChange()">
+      </select>
     </div>
     <div style="position:relative;height:100px" id="cash-trend-wrap">
       <div id="cash-trend-chart" style="display:flex;align-items:flex-end;gap:4px;height:84px;padding:0 2px"></div>
@@ -958,7 +959,7 @@ function calcLocalSummary(year, month) {
 // ── 年度セレクタ初期化（2021〜今年） ──
 function initYearSelectors() {
   const currentYear = new Date().getFullYear();
-  ['trend-year', 'rate-year'].forEach(id => {
+  ['trend-year', 'rate-year', 'cash-trend-year'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     sel.innerHTML = '';
@@ -981,8 +982,9 @@ async function onTrendYearChange() {
     if (!GAS_URL) loadAssetDataFromLocal();
     renderTrend();
   }
-  // 純資産推移も同時更新（trend-year と同じ年を使用）
-  renderCashTrend();
+  // 純資産推移も同時更新
+  const cashSel = document.getElementById('cash-trend-year');
+  if (cashSel) { cashSel.value = year; renderCashTrend(); }
 }
 
 async function onRateYearChange() {
@@ -1108,9 +1110,7 @@ function renderTrend(){
 
 // ── 現金推移グラフ ──
 function renderCashTrend() {
-  const year = parseInt(document.getElementById('trend-year').value);
-  const yearLabel = document.getElementById('cash-trend-year-label');
-  if (yearLabel) yearLabel.textContent = year + '年';
+  const year = parseInt(document.getElementById('cash-trend-year').value);
   const data = assetData[year] || {};
   const months = Object.keys(data).map(Number).sort((a, b) => a - b);
   const chart = document.getElementById('cash-trend-chart');
@@ -1171,11 +1171,25 @@ function renderCashTrend() {
 }
 
 async function onCashTrendYearChange() {
-  const year = parseInt(document.getElementById('trend-year').value);
-  const yearLabel = document.getElementById('cash-trend-year-label');
-  if (yearLabel) yearLabel.textContent = year + '年';
+  const year = parseInt(document.getElementById('cash-trend-year').value);
   if (GAS_URL && (!assetData[year] || Object.keys(assetData[year]).length === 0)) {
     await refreshTrend(); // assetDataを取得（現金データも含まれる）
+  }
+  renderCashTrend();
+}
+
+async function onCashTrendYearChange() {
+  const year = parseInt(document.getElementById('cash-trend-year').value);
+  // assetDataに該当年がなければGASから取得（trend-yearと共有データ）
+  if (GAS_URL && (!assetData[year] || Object.keys(assetData[year]).length === 0)) {
+    const data = await callGAS('getAssetTrend', { year });
+    if (data?.ok && data.data.length) {
+      assetData[year] = {};
+      data.data.forEach(d => {
+        const m = parseInt(d.yearMonth.split('/')[1]);
+        assetData[year][m] = { bank: d.bank, sec: d.sec, cash: d.cash, safe: d.safe || (d.bank + d.cash) };
+      });
+    }
   }
   renderCashTrend();
 }
