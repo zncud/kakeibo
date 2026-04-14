@@ -581,8 +581,8 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
   </div>
   <div class="card-label" style="margin-bottom:10px">カード引落日</div>
   <div class="card">
-    <div class="setting-row"><div><div class="setting-label">🔴 楽天カード</div><div class="setting-sub">締め日：毎月末</div></div><div class="setting-value" onclick="openDayModal('楽天カード','27')">翌月 27日</div></div>
-    <div class="setting-row"><div><div class="setting-label">🟢 三井住友カード</div><div class="setting-sub">締め日：毎月末</div></div><div class="setting-value" onclick="openDayModal('三井住友カード','25')">翌月 25日</div></div>
+    <div class="setting-row"><div><div class="setting-label">🔴 楽天カード</div><div class="setting-sub">締め日：毎月末</div></div><div class="setting-value" id="setting-rakuten-day" onclick="openDayModal('楽天カード', appSettings.rakuten_billing_day || 27)">翌月 27日</div></div>
+    <div class="setting-row"><div><div class="setting-label">🟢 三井住友カード</div><div class="setting-sub">締め日：毎月末</div></div><div class="setting-value" id="setting-smbc-day" onclick="openDayModal('三井住友カード', appSettings.smbc_billing_day || 25)">翌月 25日</div></div>
     <div class="setting-row"><div><div class="setting-label">🔴 PayPay <span class="paypay-note">利用日</span></div><div class="setting-sub">CSVの利用日をそのまま使用</div></div><div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">引落日なし</div></div>
   </div>
   <div style="margin-top:16px"></div>
@@ -632,6 +632,12 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
 // ── 収支カテゴリ定義（先頭で定義）──
 const INCOME_CATEGORIES = ['給与','ボーナス','副業','臨時収入','その他収入'];
 let entryMode = 'income'; // 'income' | 'expense'
+
+// ── アプリ設定（引落日など）──
+let appSettings = JSON.parse(localStorage.getItem('app_settings') || '{}');
+// デフォルト値
+if (!appSettings.rakuten_billing_day) appSettings.rakuten_billing_day = 27;
+if (!appSettings.smbc_billing_day)    appSettings.smbc_billing_day    = 25;
 
 // ── 口座管理（一括入力・一括登録）──
 
@@ -1382,10 +1388,25 @@ function showCardNote(){
 
 // ── ナビ ──
 function updateSettingDisplay() {
+  const rDay = appSettings.rakuten_billing_day || 27;
+  const sDay = appSettings.smbc_billing_day    || 25;
   const rEl = document.getElementById('setting-rakuten-day');
   const sEl = document.getElementById('setting-smbc-day');
-  if (rEl) rEl.textContent = '翌月 ' + (appSettings.rakuten_billing_day || 27) + '日';
-  if (sEl) sEl.textContent = '翌月 ' + (appSettings.smbc_billing_day || 10) + '日';
+  if (rEl) rEl.textContent = '翌月 ' + rDay + '日';
+  if (sEl) sEl.textContent = '翌月 ' + sDay + '日';
+  // 概要画面の内訳ラベルも更新
+  const sumRSub = document.querySelector('#sum-rakuten')?.closest('.list-item')?.querySelector('.list-sub');
+  const sumSSub = document.querySelector('#sum-smbc')?.closest('.list-item')?.querySelector('.list-sub');
+  if (sumRSub) sumRSub.textContent = '引落日：翌月' + rDay + '日';
+  if (sumSSub) sumSSub.textContent = '引落日：翌月' + sDay + '日';
+  // 明細取込セレクタのラベルも更新
+  const cardSel = document.getElementById('card-select');
+  if (cardSel) {
+    [...cardSel.options].forEach(o => {
+      if (o.value === 'rakuten') o.textContent = '🔴 楽天カード（引落：翌月' + rDay + '日）';
+      if (o.value === 'smbc')    o.textContent = '🟢 三井住友カード（引落：翌月' + sDay + '日）';
+    });
+  }
 }
 function switchScreen(id,btn){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active');btn.classList.add('active');}
 
@@ -1451,9 +1472,9 @@ async function saveBillingDay(key, elId) {
   if (!val || val < 1 || val > 31) { showToast('⚠ 1〜31の数値を入力してください', true); return; }
   appSettings[key] = val;
   localStorage.setItem('app_settings', JSON.stringify(appSettings));
-  const el = document.getElementById(elId);
-  if (el) el.textContent = '翌月 ' + val + '日';
-  closeModal();
+  // 設定画面・概要画面・取込セレクタを一括更新
+  updateSettingDisplay();
+  document.getElementById('modal').classList.remove('open');
   showToast('引落日を保存しました ✓');
   if (GAS_URL) await callGAS('saveSettings', { settings: { [key]: String(val) } });
 }
@@ -2639,7 +2660,13 @@ async function importCSVToGAS() {
   }
   showToast('取込中… しばらくお待ちください');
   try {
-    const result = await callGAS('importCSV', { ...pending, rows: taggedRows });
+    // 引落日設定をGASへ渡す
+    const billingDay = pending.cardType === 'rakuten'
+      ? (appSettings.rakuten_billing_day || 27)
+      : pending.cardType === 'smbc'
+        ? (appSettings.smbc_billing_day || 25)
+        : null;
+    const result = await callGAS('importCSV', { ...pending, rows: taggedRows, billingDay });
     if (!result) return;
     if (result.duplicate) { showToast('⚠ 取込済みファイルです', true); return; }
     if (result.ok) {
