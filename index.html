@@ -14,11 +14,12 @@
 <!-- フォント -->
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <!-- PDF.js -->
-<script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
-// ワーカーを無効化してメインスレッドで処理（CMap CORS問題を回避）
+// PDF.js ワーカーとCMapをスクリプト読み込み直後に設定
 if (typeof pdfjsLib !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 }
 </script>
 <style>
@@ -1893,55 +1894,77 @@ async function handleFileInput(input) {
 // ── PDF取込 ──
 async function handlePDFFile(file) {
   const cardType = document.getElementById('card-select').value;
-  if (!cardType) { showToast('⚠ カード種別を先に選択してください', true); return; }
+  if (!cardType) {
+    showToast('⚠ カード種別を先に選択してください', true);
+    return;
+  }
 
   showToast('📄 PDF解析中…');
 
   try {
-    // PDF.jsでテキスト抽出
     if (typeof pdfjsLib === 'undefined') {
-      showToast('⚠ PDF.jsの読み込みに失敗しました', true); return;
+      showToast('⚠ PDF.jsの読み込みに失敗しました', true);
+      return;
     }
+
     const buffer = await file.arrayBuffer();
-    // ワーカーを無効化してメインスレッドで処理
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-    const pdf = await pdfjsLib.getDocument({
+
+    const loadingTask = pdfjsLib.getDocument({
       data: buffer,
-      cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
+      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
       cMapPacked: true,
-    }).promise;
+      standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/standard_fonts/',
+      useWorkerFetch: true,
+      isEvalSupported: true,
+      useSystemFonts: true,
+      disableFontFace: false,
+    });
+
+    const pdf = await loadingTask.promise;
 
     let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      // アイテムをY座標でグループ化して行ごとに結合
-      const items = content.items;
-      // Y座標でグループ化、同じ行内はX座標順でタブ区切り
-      const lines = {};
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const content = await page.getTextContent({
+        normalizeWhitespace: true,
+        disableCombineTextItems: false,
+      });
+
+      const items = content.items || [];
+      const lineMap = {};
+
       items.forEach(item => {
+        if (!item.str) return;
         const y = Math.round(item.transform[5] * 10) / 10;
         const x = item.transform[4];
-        if (!lines[y]) lines[y] = [];
-        lines[y].push({ x, str: item.str });
+        if (!lineMap[y]) lineMap[y] = [];
+        lineMap[y].push({ x, str: item.str });
       });
-      Object.keys(lines)
-        .map(Number).sort((a,b) => b-a)
+
+      Object.keys(lineMap)
+        .map(Number)
+        .sort((a, b) => b - a)
         .forEach(y => {
-          const sorted = lines[y].sort((a,b) => a.x - b.x);
-          // X座標の差が大きい（20px以上）ときにタブを挿入
+          const sorted = lineMap[y].sort((a, b) => a.x - b.x);
+          if (!sorted.length) return;
           let row = sorted[0].str;
           for (let i = 1; i < sorted.length; i++) {
-            const gap = sorted[i].x - sorted[i-1].x - (sorted[i-1].str.length * 5);
-            row += (gap > 15 ? '\t' : '') + sorted[i].str;
+            const gap = sorted[i].x - sorted[i - 1].x;
+            row += (gap > 20 ? '\t' : '') + sorted[i].str;
           }
           fullText += row + '\n';
         });
     }
 
+    if (!fullText.trim()) {
+      showToast('⚠ PDFから文字を抽出できませんでした。画像PDFの可能性があります', true);
+      return;
+    }
+
     const rows = parsePDF(fullText, cardType, file.name);
     if (!rows.length) {
-      showToast('⚠ データが見つかりません。コンソールのログを確認してください', true);
+      showToast('⚠ データが見つかりません。PDF形式が想定と違う可能性があります', true);
       return;
     }
 
@@ -1953,7 +1976,7 @@ async function handlePDFFile(file) {
     window._pendingImport = { cardType, filename, rows };
     showToast(`✅ ${rows.length}件を検出しました`);
 
-  } catch(e) {
+  } catch (e) {
     console.error('[PDF] error:', e);
     showToast('⚠ PDF解析エラー: ' + e.message, true);
   }
@@ -1962,12 +1985,8 @@ async function handlePDFFile(file) {
 // ── PDFパーサー ──
 function parsePDF(text, cardType, filename) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-
-  if (cardType === 'rakuten') {
-    return parseRakutenPDF(lines);
-  } else if (cardType === 'smbc') {
-    return parseSMBCPDF(lines);
-  }
+  if (cardType === 'rakuten') return parseRakutenPDF(lines);
+  if (cardType === 'smbc')    return parseSMBCPDF(lines);
   return [];
 }
 
@@ -1975,26 +1994,16 @@ function parsePDF(text, cardType, filename) {
 // 行フォーマット: "2026/03/25\tSuica（携帯決済）\t本人*\t1回払い\t1,000\t0\t1,000\t1,000\t0"
 function parseRakutenPDF(lines) {
   const rows = [];
-  const dateRe = /^(\d{4}\/\d{2}\/\d{2})/;
-
   lines.forEach(line => {
-    const cols = line.split('\t').map(s => s.trim());
-    // 日付で始まる行を明細行と判断
-    const dateMatch = cols[0].match(dateRe);
-    if (!dateMatch) return;
-
-    const date  = dateMatch[1];
-    const shop  = cols[1] || '';
-    // 利用金額: cols[4]（手数料/利息の前）
-    let amount = 0;
-    for (let i = 2; i < cols.length; i++) {
-      const v = parseAmount(cols[i]);
-      if (v > 0 && v < 10000000) { amount = v; break; }
-    }
-    // 楽天証券積立・楽天キャッシュチャージは支出として記録
-    if (date && shop && amount > 0) {
-      rows.push({ date, shop, amount });
-    }
+    const s = line.trim();
+    const m = s.match(
+      /^(\d{4}\/\d{2}\/\d{2})\s+(.+?)\s+本人\*?\s+1回払い\s+([\d,]+)\s+0\s+[\d,]+\s+[\d,]+\s+0$/
+    );
+    if (!m) return;
+    const date = m[1];
+    const shop = m[2].trim();
+    const amount = parseAmount(m[3]);
+    if (date && shop && amount > 0) rows.push({ date, shop, amount });
   });
   return rows;
 }
@@ -2003,39 +2012,59 @@ function parseRakutenPDF(lines) {
 // 行フォーマット: "26/02/28\t大阪ガス利用料金\t413\t１\t１\t413"
 function parseSMBCPDF(lines) {
   const rows = [];
-  // YY/MM/DD形式
-  const dateRe = /^(\d{2})\/(\d{2})\/(\d{2})/;
+  let pendingShopPrefix = '';
 
-  lines.forEach(line => {
-    const cols = line.split('\t').map(s => s.trim());
-    const dateMatch = cols[0].match(dateRe);
-    if (!dateMatch) return;
+  for (let i = 0; i < lines.length; i++) {
+    const s = lines[i].trim();
+    if (!s) continue;
 
-    // YY/MM/DD → YYYY/MM/DD
-    const year  = '20' + dateMatch[1];
-    const month = dateMatch[2];
-    const day   = dateMatch[3];
-    const date  = `${year}/${month}/${day}`;
-    const shop  = cols[1] || '';
+    // 店名前半だけの行を保持（英字が含まれていて日付で始まらない行）
+    if (
+      !/^(?:B#|#)?\s*\d{2}\/\d{2}\/\d{2}/.test(s) &&
+      /[A-Za-zＡ-Ｚａ-ｚ()]/.test(s) &&
+      !/[◎¥円]$/.test(s)
+    ) {
+      pendingShopPrefix = s;
+      continue;
+    }
 
-    // 金額: cols[2]が利用金額
-    let amount = parseAmount(cols[2]);
-    if (!amount) {
-      // colsをスキャン
-      for (let i = 2; i < Math.min(cols.length, 6); i++) {
-        const v = parseAmount(cols[i]);
-        if (v > 0) { amount = v; break; }
+    // 通常の明細行
+    const m = s.match(/^(?:B#|#)?\s*(\d{2})\/(\d{2})\/(\d{2})\s+(.*)$/);
+    if (!m) continue;
+
+    const yy = m[1], mm = m[2], dd = m[3];
+    let body = m[4].replace(/\s+/g, ' ').trim();
+
+    // 金額を抽出
+    const amtMatch = body.match(/([\d,]+)\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+/);
+    if (!amtMatch) continue;
+    const amount = parseAmount(amtMatch[1]);
+    if (!(amount > 0)) continue;
+
+    let shop = '';
+
+    if (/^[\d,]+\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+/.test(body)) {
+      // 店名が前行にあるケース（Claudeなど英字店名が途切れたケース）
+      let suffix = '';
+      const next = (lines[i + 1] || '').trim();
+      if (next && !/^(?:B#|#)?\s*\d{2}\/\d{2}\/\d{2}/.test(next) && !/^[＜※]/.test(next)) {
+        suffix = next;
+        i++;
+      }
+      shop = [pendingShopPrefix, suffix].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+      pendingShopPrefix = '';
+    } else {
+      // 通常ケース: 金額の前までを店名
+      shop = body.replace(/\s+[\d,]+\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+.*$/, '').trim();
+      if (pendingShopPrefix) {
+        shop = `${pendingShopPrefix} ${shop}`.replace(/\s+/g, ' ').trim();
+        pendingShopPrefix = '';
       }
     }
 
-    if (date && shop && amount > 0 && !shop.includes('ご利用') && !shop.includes('お支払')) {
-      // 引落日を計算（SMBCは翌月10日）
-      const d = new Date(`${year}-${month}-${day}`);
-      const billing = new Date(d.getFullYear(), d.getMonth() + 1, 10);
-      const billingDate = `${billing.getFullYear()}/${String(billing.getMonth()+1).padStart(2,'0')}/${String(billing.getDate()).padStart(2,'0')}`;
-      rows.push({ date: billingDate, shop, amount });
-    }
-  });
+    const date = `20${yy}/${mm}/${dd}`;
+    if (shop && amount > 0) rows.push({ date, shop, amount });
+  }
   return rows;
 }
 
