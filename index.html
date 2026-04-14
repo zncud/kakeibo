@@ -1085,6 +1085,17 @@ function renderTrend(){
   const maxTotal=Math.max(...totals,1);
   const minTotal=Math.min(...totals);
   const range=maxTotal-minTotal||1;
+  // 前年最終月の合計を取得（初月の前月比計算用）
+  const prevYearData=assetData[year-1]||{};
+  const prevYearLastTotal=(()=>{
+    for(let pm=12;pm>=1;pm--){
+      if(prevYearData[pm]!==undefined){
+        const d=prevYearData[pm];
+        return d.bank+d.sec+d.cash;
+      }
+    }
+    return null;
+  })();
   const barMaxH=84;
   const now=new Date();
   const currentMonth=(year===now.getFullYear())?now.getMonth()+1:null;
@@ -1095,7 +1106,7 @@ function renderTrend(){
   months.forEach((m,idx)=>{
     const d=data[m];
     const total=d.bank+d.sec+d.cash;
-    const prevTotal=idx>0?totals[idx-1]:null;
+    const prevTotal=idx>0?totals[idx-1]:(prevYearLastTotal);
     const diff=prevTotal!==null?total-prevTotal:null;
     const barH=Math.max(4,Math.round((total-minTotal)/range*(barMaxH-16)+8));
     const isCur=m===currentMonth;
@@ -1104,13 +1115,13 @@ function renderTrend(){
 
     const col=document.createElement('div');
     col.style.cssText='flex:1;display:flex;flex-direction:column;align-items:center';
-    // 前月比（上）
+    // 前月比（最上部）
     const diffEl=document.createElement('div');
-    diffEl.style.cssText=`font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${diffColor};white-space:nowrap;height:14px;display:flex;align-items:center`;
+    diffEl.style.cssText=`font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${diffColor};white-space:nowrap;height:14px;display:flex;align-items:center;justify-content:center`;
     diffEl.textContent=diffStr;
     // 金額
     const amtEl=document.createElement('div');
-    amtEl.style.cssText="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);margin-bottom:2px;white-space:nowrap";
+    amtEl.style.cssText="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);margin-bottom:2px;white-space:nowrap;text-align:center";
     amtEl.textContent=`¥${Math.round(total/10000)}万`;
     // 積み上げ棒
     const barEl=document.createElement('div');
@@ -1119,14 +1130,14 @@ function renderTrend(){
       `<div style="position:absolute;bottom:0;left:0;right:0;height:${Math.round(d.cash/total*barH)}px;background:var(--accent)"></div>`+
       `<div style="position:absolute;bottom:${Math.round(d.cash/total*barH)}px;left:0;right:0;height:${Math.round(d.sec/total*barH)}px;background:var(--purple)"></div>`+
       `<div style="position:absolute;top:0;left:0;right:0;height:${Math.round(d.bank/total*barH)}px;background:var(--blue)"></div>`;
-    // 月ラベル（下）
+    // 月ラベル（最下部）
     const lblEl=document.createElement('div');
     lblEl.style.cssText=`font-size:9px;font-family:'DM Mono',monospace;color:${isCur?'var(--accent)':'var(--text3)'};font-weight:${isCur?700:400};margin-top:4px`;
     lblEl.textContent=`${m}月`;
 
     col.appendChild(diffEl);
-    col.appendChild(amtEl);
     col.appendChild(barEl);
+    col.appendChild(amtEl);
     col.appendChild(lblEl);
     area.appendChild(col);
   });
@@ -1194,9 +1205,9 @@ function renderCashTrend() {
     col.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding-bottom:2px';
     col.innerHTML =
       `<div style="font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${diffColor};white-space:nowrap;text-align:center;height:14px;display:flex;align-items:center;justify-content:center">${diffStr}</div>` +
-      `<div style="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;text-align:center;margin-bottom:2px">¥${Math.round(safe / 10000)}万</div>` +
       `<div style="width:70%;height:${barH}px;background:var(--accent);border-radius:3px 3px 0 0;opacity:${isCur ? 1 : 0.55}"></div>` +
-      `<div style="font-size:9px;font-family:'DM Mono',monospace;color:${isCur ? 'var(--accent)' : 'var(--text3)'};font-weight:${isCur ? 700 : 400};margin-top:4px">${m}月</div>`;
+      `<div style="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;text-align:center;margin-top:2px">¥${Math.round(safe / 10000)}万</div>` +
+      `<div style="font-size:9px;font-family:'DM Mono',monospace;color:${isCur ? 'var(--accent)' : 'var(--text3)'};font-weight:${isCur ? 700 : 400};margin-top:2px">${m}月</div>`;
     chart.appendChild(col);
   });
 
@@ -1268,7 +1279,7 @@ function renderRateChart(){
 
   const barsEl=document.getElementById('rate-bars');
   const labelsEl=document.getElementById('rate-labels');
-  barsEl.innerHTML='';labelsEl.innerHTML='';
+  barsEl.innerHTML='';if(labelsEl)labelsEl.innerHTML='';
 
   months.forEach((m,idx)=>{
     const risk=riskAmounts[idx];
@@ -1281,14 +1292,11 @@ function renderRateChart(){
     const rateStr=(rate>=0?'+':'')+rate.toFixed(1)+'%';
     const man=Math.round(risk/10000);
     col.innerHTML=`
-      <div style="font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${color};margin-bottom:2px;white-space:nowrap">${rateStr}</div>
+      <div style="font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${color};white-space:nowrap;height:14px;display:flex;align-items:center;justify-content:center">${rateStr}</div>
       <div style="width:70%;height:${barH}px;background:${color};border-radius:3px 3px 0 0;opacity:${isCur?1:0.55}"></div>
-      <div style="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);margin-top:3px">¥${man}万</div>`;
+      <div style="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;text-align:center;margin-top:2px">¥${man}万</div>
+      <div style="font-size:9px;font-family:'DM Mono',monospace;color:${isCur?'var(--accent)':'var(--text3)'};font-weight:${isCur?700:400};margin-top:2px">${m}月</div>`;
     barsEl.appendChild(col);
-    const lbl=document.createElement('div');
-    lbl.style.cssText=`flex:1;text-align:center;font-size:9px;font-family:'DM Mono',monospace;color:${isCur?'var(--accent)':'var(--text3)'};font-weight:${isCur?700:400};margin-top:2px`;
-    lbl.textContent=`${m}月`;
-    labelsEl.appendChild(lbl);
   });
 
   // テーブル
@@ -1628,13 +1636,28 @@ window.addEventListener('load', async () => {
       }
       // サマリー
       applySummaryData(d.summary, d.prevSummary);
-      // 資産推移
+      // 資産推移（当年）
       if (d.trend?.ok && d.trend.data?.length) {
         assetData[trendYear] = {};
         d.trend.data.forEach(r => {
           const m = parseInt(r.yearMonth.split('/')[1]);
           assetData[trendYear][m] = { bank: r.bank, sec: r.sec, cash: r.cash, safe: r.safe || (r.bank + r.cash) };
         });
+      }
+      // 前年データも取得して初月の前月比を計算できるようにする
+      if (GAS_URL && (!assetData[trendYear-1] || !Object.keys(assetData[trendYear-1]).length)) {
+        callGAS('getAssetTrend', { year: trendYear - 1 }).then(prev => {
+          if (prev?.ok && prev.data?.length) {
+            assetData[trendYear-1] = {};
+            prev.data.forEach(r => {
+              const m = parseInt(r.yearMonth.split('/')[1]);
+              assetData[trendYear-1][m] = { bank: r.bank, sec: r.sec, cash: r.cash, safe: r.safe || (r.bank + r.cash) };
+            });
+          }
+          renderTrend();
+          renderCashTrend();
+        });
+      } else {
         renderTrend();
         renderCashTrend();
       }
