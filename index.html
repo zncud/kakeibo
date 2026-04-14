@@ -3005,7 +3005,7 @@ async function refreshSummary() {
 }
 
 async function refreshTrend() {
-  const year = parseInt(document.getElementById('trend-year').value);
+  const year = parseInt(document.getElementById('graph-year').value);
   const data = await callGAS('getAssetTrend', { year });
   if (!data?.ok || !data.data.length) return;
 
@@ -3024,16 +3024,10 @@ async function refreshTrend() {
 }
 
 async function refreshSecRate() {
-  const year = parseInt(document.getElementById('rate-year').value);
+  const year = parseInt(document.getElementById('graph-year').value);
   const data = await callGAS('getSecRate', { year });
   if (!data?.ok || !data.data.length) {
-    // データなし → グラフをクリアしてメッセージ表示
-    const barsEl = document.getElementById('rate-bars');
-    const labelsEl = document.getElementById('rate-labels');
-    const tbody = document.getElementById('rate-tbody');
-    if (barsEl) barsEl.innerHTML = '<div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;color:var(--text3);font-size:12px">'+year+'年のデータがありません</div>';
-    if (labelsEl) labelsEl.innerHTML = '';
-    if (tbody) tbody.innerHTML = '';
+    renderRateChart();
     return;
   }
 
