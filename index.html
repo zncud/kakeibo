@@ -329,7 +329,7 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
   <!-- 現金推移 -->
   <div class="card" style="border-color:#fdd8c8">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div class="card-label" style="margin-bottom:0">💴 現金推移</div>
+      <div class="card-label" style="margin-bottom:0">🏦 純資産推移</div>
       <select class="period-select" style="font-size:11px;padding:4px 10px" id="cash-trend-year" onchange="onCashTrendYearChange()">
       </select>
     </div>
@@ -338,7 +338,7 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
     </div>
     <div style="display:flex;margin-top:4px" id="cash-trend-labels"></div>
     <table class="asset-table" style="margin-top:14px">
-      <thead><tr><th>月</th><th style="text-align:right">現金残高</th><th style="text-align:right">前月比</th></tr></thead>
+      <thead><tr><th>月</th><th style="text-align:right">純資産</th><th style="text-align:right">前月比</th></tr></thead>
       <tbody id="cash-trend-tbody"></tbody>
     </table>
   </div>
@@ -807,9 +807,10 @@ async function submitAllBalances() {
     // ローカルに資産スナップショットを保存
     const bank = yucho + rakuten + paypay;
     const sec  = secValue;
+    const safe = cash + bank;
     const snapshots = JSON.parse(localStorage.getItem('asset_snapshots') || '{}');
     if (!snapshots[year]) snapshots[year] = {};
-    snapshots[year][month] = { bank, sec, cash };
+    snapshots[year][month] = { bank, sec, cash, safe };
     localStorage.setItem('asset_snapshots', JSON.stringify(snapshots));
     // assetData を更新してグラフを再描画
     loadAssetDataFromLocal();
@@ -1063,6 +1064,7 @@ function loadAssetDataFromLocal() {
         bank: s.bank || 0,
         sec:  s.sec  || 0,
         cash: s.cash || 0,
+        safe: s.safe || (s.bank + s.cash) || 0,
       };
     });
   });
@@ -1122,10 +1124,10 @@ function renderCashTrend() {
     return;
   }
 
-  const cashValues = months.map(m => data[m].cash);
-  const maxCash = Math.max(...cashValues, 1);
-  const minCash = Math.min(...cashValues);
-  const range = maxCash - minCash || 1;
+  const safeValues = months.map(m => data[m].safe || (data[m].bank + data[m].cash));
+  const maxSafe = Math.max(...safeValues, 1);
+  const minSafe = Math.min(...safeValues);
+  const range = maxSafe - minSafe || 1;
   const barMaxH = 84;
   const now = new Date();
   const currentMonth = (year === now.getFullYear()) ? now.getMonth() + 1 : null;
@@ -1134,10 +1136,10 @@ function renderCashTrend() {
   labels.innerHTML = '';
 
   months.forEach((m, idx) => {
-    const cash = cashValues[idx];
-    const prev = idx > 0 ? cashValues[idx - 1] : null;
-    const diff = prev !== null ? cash - prev : null;
-    const barH = Math.max(4, Math.round((cash - minCash) / range * (barMaxH - 16) + 8));
+    const safe = safeValues[idx];
+    const prev = idx > 0 ? safeValues[idx - 1] : null;
+    const diff = prev !== null ? safe - prev : null;
+    const barH = Math.max(4, Math.round((safe - minSafe) / range * (barMaxH - 16) + 8));
     const isCur = m === currentMonth;
     const diffColor = diff === null ? 'var(--text3)' : diff >= 0 ? 'var(--mint)' : 'var(--red)';
     const diffStr = diff === null ? '' : (diff >= 0 ? '+' : '') + Math.round(diff / 10000) + '万';
@@ -1145,7 +1147,7 @@ function renderCashTrend() {
     const col = document.createElement('div');
     col.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:' + barMaxH + 'px;position:relative';
     col.innerHTML =
-      `<div style="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);margin-bottom:2px;white-space:nowrap">¥${Math.round(cash / 10000)}万</div>` +
+      `<div style="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);margin-bottom:2px;white-space:nowrap">¥${Math.round(safe / 10000)}万</div>` +
       `<div style="width:70%;height:${barH}px;background:var(--accent);border-radius:3px 3px 0 0;opacity:${isCur ? 1 : 0.55}"></div>` +
       (diffStr ? `<div style="position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${diffColor};white-space:nowrap">${diffStr}</div>` : '');
     chart.appendChild(col);
@@ -1158,13 +1160,13 @@ function renderCashTrend() {
 
   tbody.innerHTML = '';
   months.forEach((m, idx) => {
-    const cash = cashValues[idx];
-    const prev = idx > 0 ? cashValues[idx - 1] : null;
-    const diff = prev !== null ? cash - prev : null;
+    const safe = safeValues[idx];
+    const prev = idx > 0 ? safeValues[idx - 1] : null;
+    const diff = prev !== null ? safe - prev : null;
     const isCur = m === currentMonth;
     const diffHtml = diff === null ? '<td class="num" style="color:var(--text3)">—</td>'
       : '<td class="num ' + (diff >= 0 ? 'pos' : 'neg') + '">' + (diff >= 0 ? '＋' : '') + '¥' + diff.toLocaleString() + '</td>';
-    tbody.innerHTML += '<tr style="' + (isCur ? 'font-weight:700;' : '') + '"><td>' + m + '月</td><td class="num">¥' + cash.toLocaleString() + '</td>' + diffHtml + '</tr>';
+    tbody.innerHTML += '<tr style="' + (isCur ? 'font-weight:700;' : '') + '"><td>' + m + '月</td><td class="num">¥' + safe.toLocaleString() + '</td>' + diffHtml + '</tr>';
   });
 }
 
@@ -1539,7 +1541,7 @@ window.addEventListener('load', async () => {
         assetData[trendYear] = {};
         d.trend.data.forEach(r => {
           const m = parseInt(r.yearMonth.split('/')[1]);
-          assetData[trendYear][m] = { bank: r.bank, sec: r.sec, cash: r.cash };
+          assetData[trendYear][m] = { bank: r.bank, sec: r.sec, cash: r.cash, safe: r.safe || (r.bank + r.cash) };
         });
         renderTrend();
         renderCashTrend();
@@ -2899,6 +2901,7 @@ async function refreshTrend() {
       bank: d.bank,
       sec:  d.sec,
       cash: d.cash,
+      safe: d.safe || (d.bank + d.cash),
     };
   });
   renderTrend();
