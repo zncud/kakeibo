@@ -1165,7 +1165,7 @@ function renderCashTrend() {
     const diff = prev !== null ? safe - prev : null;
     const isCur = m === currentMonth;
     const diffHtml = diff === null ? '<td class="num" style="color:var(--text3)">—</td>'
-      : '<td class="num ' + (diff >= 0 ? 'pos' : 'neg') + '">' + (diff >= 0 ? '＋' : '') + '¥' + diff.toLocaleString() + '</td>';
+      : '<td class="num ' + (diff >= 0 ? 'pos' : 'neg') + '">' + (diff >= 0 ? '＋' : '－') + '¥' + Math.abs(diff).toLocaleString() + '</td>';
     tbody.innerHTML += '<tr style="' + (isCur ? 'font-weight:700;' : '') + '"><td>' + m + '月</td><td class="num">¥' + safe.toLocaleString() + '</td>' + diffHtml + '</tr>';
   });
 }
