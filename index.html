@@ -858,7 +858,7 @@ async function loadLatestAsset() {
 
 // 概要
 const CHIP_COLORS=['','chip-mint','chip-blue','chip-pink','chip-purple','','chip-mint','chip-blue','chip-pink','chip-purple'];
-let categories=['食費','交通費','日用品','趣味・娯楽','医療・健康','衣類','水道光熱費','通信費','保険','その他'];
+let categories=['食費','交通費','日用品','趣味・娯楽','医療・健康','衣類','水道光熱費','通信費','保険','投資','その他'];
 function renderCategories(){
   const list=document.getElementById('cat-list');
   list.innerHTML='';
@@ -1470,6 +1470,8 @@ window.addEventListener('load', async () => {
 let keywordRules = JSON.parse(localStorage.getItem('keyword_rules') || '[]');
 if (!keywordRules.length) {
   keywordRules = [
+    { keyword: '楽天証券', category: '投資' },
+    { keyword: '楽天キャッシュ', category: '投資' },
     { keyword: 'イオン', category: '食費' },
     { keyword: 'マルエツ', category: '食費' },
     { keyword: 'ライフ', category: '食費' },
@@ -2042,7 +2044,7 @@ function parsePDF(text, cardType, filename) {
 // "2026/03/16\t ﾗｲﾌﾐﾌﾞﾃﾝ\t \t本人* \t1回払い\t \t559 \t0 \t559 \t559 \t0"
 function parseRakutenPDF(lines) {
   const rows = [];
-  const skipShops = ['楽天証券', '楽天キャッシュ'];
+  const skipShops = []; // すべての明細を取り込む
 
   lines.forEach(line => {
     const s = line.trim();
