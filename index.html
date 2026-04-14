@@ -316,12 +316,11 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
     </div>
     <div class="trend-area" id="trend-area"></div>
     <div class="trend-legend">
-      <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--blue)"></div>銀行</div>
+      <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--blue)"></div>純資産</div>
       <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--purple)"></div>証券</div>
-      <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--accent)"></div>現金</div>
     </div>
     <table class="asset-table">
-      <thead><tr><th>月</th><th style="text-align:right">銀行</th><th style="text-align:right">証券</th><th style="text-align:right">現金</th><th style="text-align:right">合計</th><th style="text-align:right">前月比</th></tr></thead>
+      <thead><tr><th>月</th><th style="text-align:right">純資産</th><th style="text-align:right">証券</th><th style="text-align:right">合計</th><th style="text-align:right">前月比</th></tr></thead>
       <tbody id="trend-tbody"></tbody>
     </table>
   </div>
@@ -1126,10 +1125,10 @@ function renderTrend(){
     // 積み上げ棒
     const barEl=document.createElement('div');
     barEl.style.cssText=`width:70%;height:${barH}px;border-radius:3px 3px 0 0;opacity:${isCur?1:0.55};position:relative;overflow:hidden`;
+    const safeH=Math.round((d.bank+d.cash)/total*barH);
     barEl.innerHTML=
-      `<div style="position:absolute;bottom:0;left:0;right:0;height:${Math.round(d.cash/total*barH)}px;background:var(--accent)"></div>`+
-      `<div style="position:absolute;bottom:${Math.round(d.cash/total*barH)}px;left:0;right:0;height:${Math.round(d.sec/total*barH)}px;background:var(--purple)"></div>`+
-      `<div style="position:absolute;top:0;left:0;right:0;height:${Math.round(d.bank/total*barH)}px;background:var(--blue)"></div>`;
+      `<div style="position:absolute;bottom:0;left:0;right:0;height:${safeH}px;background:var(--blue)"></div>`+
+      `<div style="position:absolute;top:0;left:0;right:0;height:${barH-safeH}px;background:var(--purple)"></div>`;
     // 月ラベル（最下部）
     const lblEl=document.createElement('div');
     lblEl.style.cssText=`font-size:9px;font-family:'DM Mono',monospace;color:${isCur?'var(--accent)':'var(--text3)'};font-weight:${isCur?700:400};margin-top:4px`;
@@ -1150,7 +1149,8 @@ function renderTrend(){
     const isCur=m===currentMonth;
     const diffHtml=diff===null?'<td class="num" style="color:var(--text3);white-space:nowrap">—</td>'
       :`<td class="num ${diff>=0?'pos':'neg'}" style="white-space:nowrap">${diff>=0?'＋':'－'}¥${Math.abs(diff).toLocaleString()}</td>`;
-    tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}"><td style="white-space:nowrap">${m}月</td><td class="num" style="white-space:nowrap">¥${d.bank.toLocaleString()}</td><td class="num" style="white-space:nowrap">¥${d.sec.toLocaleString()}</td><td class="num" style="white-space:nowrap">¥${d.cash.toLocaleString()}</td><td class="num" style="white-space:nowrap">¥${total.toLocaleString()}</td>${diffHtml}</tr>`;
+    const safe2=d.bank+d.cash;
+    tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}"><td style="white-space:nowrap">${m}月</td><td class="num">¥${safe2.toLocaleString()}</td><td class="num">¥${d.sec.toLocaleString()}</td><td class="num">¥${total.toLocaleString()}</td>${diffHtml}</tr>`;
   });
 }
 
