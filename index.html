@@ -42,12 +42,12 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
 .logo{font-size:18px;font-weight:700;color:var(--accent)}
 .header-date{background:var(--accent-light);color:var(--accent);font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;font-family:'DM Mono',monospace}
 
-.nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(255,255,255,0.97);border-top:1.5px solid var(--border);display:flex}
-.nav-item{flex:1;padding:8px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;border:none;background:none;color:var(--text3);font-size:9px;font-family:'Zen Maru Gothic',sans-serif;font-weight:500;transition:color 0.2s}
+.nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(255,255,255,0.97);border-top:1.5px solid var(--border);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+.nav-item{flex:1;padding:10px 4px 14px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;border:none;background:none;color:var(--text3);font-size:10px;font-family:'Zen Maru Gothic',sans-serif;font-weight:500;transition:color 0.2s}
 .nav-item.active{color:var(--accent)}
-.nav-icon{font-size:20px;line-height:1}
+.nav-icon{font-size:22px;line-height:1}
 
-.screen{display:none;padding:70px 0 88px;min-height:100vh}
+.screen{display:none;padding:70px 0 calc(100px + env(safe-area-inset-bottom));min-height:100vh}
 .screen.active{display:block}
 .container{padding:0 16px;max-width:480px;margin:0 auto}
 
@@ -302,6 +302,13 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
     <div class="list-item"><div class="list-left"><div class="list-dot" style="background:var(--blue)"></div><div><div class="list-name">楽天銀行（出金）</div><div class="list-sub">CSV取込</div></div></div><div class="list-amount" id="sum-bank">¥0</div></div>
   </div>
 
+  <!-- グラフ共通年セレクタ -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;margin-top:8px">
+    <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">グラフ表示年</div>
+    <select class="period-select" style="font-size:12px;padding:6px 14px" id="graph-year" onchange="onGraphYearChange()">
+    </select>
+  </div>
+
   <div class="card">
     <div class="card-label">カテゴリ別</div>
     <div id="sum-category-bars"><div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">データを取り込むとここに表示されます</div></div>
@@ -311,16 +318,14 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div class="card-label" style="margin-bottom:0">資産推移（合計）</div>
-      <select class="period-select" style="font-size:11px;padding:4px 10px" id="trend-year" onchange="onTrendYearChange()">
-      </select>
     </div>
-    <div class="trend-area" id="trend-area"></div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><div class="trend-area" id="trend-area" style="min-width:max-content;padding-bottom:4px"></div></div>
     <div class="trend-legend">
       <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--blue)"></div>純資産</div>
       <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--purple)"></div>証券</div>
     </div>
     <table class="asset-table">
-      <thead><tr><th>月</th><th style="text-align:right">純資産</th><th style="text-align:right">証券</th><th style="text-align:right">合計</th><th style="text-align:right">前月比</th></tr></thead>
+      <thead><tr><th>月</th><th style="text-align:right">合計</th><th style="text-align:right">前月比</th></tr></thead>
       <tbody id="trend-tbody"></tbody>
     </table>
   </div>
@@ -329,8 +334,6 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
   <div class="card" style="border-color:#fdd8c8">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div class="card-label" style="margin-bottom:0">🏦 純資産推移</div>
-      <select class="period-select" style="font-size:11px;padding:4px 10px" id="cash-trend-year" onchange="onCashTrendYearChange()">
-      </select>
     </div>
     <div id="cash-trend-chart" style="display:flex;align-items:flex-end;gap:2px;padding:0 2px"></div>
     <table class="asset-table" style="margin-top:14px">
@@ -343,16 +346,10 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
   <div class="card" style="border-color:#e8dcf8">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <div class="card-label" style="margin-bottom:0">📈 証券利益率の推移</div>
-      <select class="period-select" style="font-size:11px;padding:4px 10px" id="rate-year" onchange="onRateYearChange()">
-        
-      </select>
     </div>
     <div style="font-size:10px;color:var(--text3);margin-bottom:14px">損益 ÷ 累計入金額 × 100</div>
     <div class="rate-chart">
-      <div style="position:relative;height:120px" id="rate-chart-wrap">
-        <div class="rate-bars" id="rate-bars"></div>
-      </div>
-      <div style="display:flex;margin-top:4px" id="rate-labels"></div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><div style="position:relative;min-width:max-content" id="rate-chart-wrap"><div class="rate-bars" id="rate-bars" style="min-width:max-content"></div></div><div style="display:flex;min-width:max-content;margin-top:4px" id="rate-labels"></div></div>
     </div>
     <table class="asset-table" style="margin-top:14px">
       <thead><tr><th>月</th><th style="text-align:right">証券評価額</th><th style="text-align:right">累計損益</th><th style="text-align:right">利益率</th></tr></thead>
@@ -585,7 +582,7 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
   </div>
   <div class="card-label" style="margin-bottom:10px">カード引落日</div>
   <div class="card">
-    <div class="setting-row"><div><div class="setting-label">🔴 楽天カード</div><div class="setting-sub">締め日：毎月末</div></div><div class="setting-value" onclick="openDayModal('楽天カード','27')">翌月 27日</div></div>
+    <div class="setting-row"><div><div class="setting-label">🔴 楽天カード</div><div class="setting-sub">締め日：毎月末</div></div><div class="setting-value" </div>
     <div class="setting-row"><div><div class="setting-label">🟢 三井住友カード</div><div class="setting-sub">締め日：毎月15日</div></div><div class="setting-value" onclick="openDayModal('三井住友カード','10')">翌月 10日</div></div>
     <div class="setting-row"><div><div class="setting-label">🔴 PayPay <span class="paypay-note">利用日</span></div><div class="setting-sub">CSVの利用日をそのまま使用</div></div><div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">引落日なし</div></div>
   </div>
@@ -955,7 +952,7 @@ function calcLocalSummary(year, month) {
 // ── 年度セレクタ初期化（2021〜今年） ──
 function initYearSelectors() {
   const currentYear = new Date().getFullYear();
-  ['trend-year', 'rate-year', 'cash-trend-year'].forEach(id => {
+  ['graph-year'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     sel.innerHTML = '';
@@ -969,9 +966,51 @@ function initYearSelectors() {
   });
 }
 
+// ── グラフ共通年変更 ──
+async function onGraphYearChange() {
+  const year = parseInt(document.getElementById('graph-year').value);
+  // assetData が未取得なら取得
+  if (GAS_URL && (!assetData[year] || Object.keys(assetData[year]).length === 0)) {
+    const [trend, prevTrend] = await Promise.all([
+      callGAS('getAssetTrend', { year }),
+      callGAS('getAssetTrend', { year: year - 1 }),
+    ]);
+    if (trend?.ok) {
+      assetData[year] = {};
+      trend.data.forEach(r => {
+        const m = parseInt(r.yearMonth.split('/')[1]);
+        assetData[year][m] = { bank: r.bank, sec: r.sec, cash: r.cash, safe: r.safe || (r.bank + r.cash) };
+      });
+    }
+    if (prevTrend?.ok) {
+      assetData[year-1] = assetData[year-1] || {};
+      prevTrend.data.forEach(r => {
+        const m = parseInt(r.yearMonth.split('/')[1]);
+        assetData[year-1][m] = { bank: r.bank, sec: r.sec, cash: r.cash, safe: r.safe || (r.bank + r.cash) };
+      });
+    }
+  } else if (!GAS_URL) {
+    loadAssetDataFromLocal();
+  }
+  // secData が未取得なら取得
+  if (GAS_URL && (!secData[year] || Object.keys(secData[year]).length === 0)) {
+    const sec = await callGAS('getSecRate', { year });
+    if (sec?.ok) {
+      secData[year] = {};
+      sec.data.forEach(r => {
+        const m = parseInt(r.yearMonth.split('/')[1]);
+        secData[year][m] = { deposit: r.cumDeposit, pnl: r.cumPnl, riskTotal: r.riskTotal };
+      });
+    }
+  }
+  renderTrend();
+  renderCashTrend();
+  renderRateChart();
+}
+
 // 年度変更時：未取得ならGASから取得してグラフ更新
 async function onTrendYearChange() {
-  const year = parseInt(document.getElementById('trend-year').value);
+  const year = parseInt(document.getElementById('graph-year').value);
   if (GAS_URL && (!assetData[year] || Object.keys(assetData[year]).length === 0)) {
     await refreshTrend();
   } else {
@@ -979,12 +1018,11 @@ async function onTrendYearChange() {
     renderTrend();
   }
   // 純資産推移も同時更新
-  const cashSel = document.getElementById('cash-trend-year');
-  if (cashSel) { cashSel.value = year; renderCashTrend(); }
+  renderCashTrend();
 }
 
 async function onRateYearChange() {
-  const year = parseInt(document.getElementById('rate-year').value);
+  const year = parseInt(document.getElementById('graph-year').value);
   if (GAS_URL) {
     await refreshSecRate();  // 年変更時は常にGASから再取得
   } else {
@@ -1070,7 +1108,7 @@ function loadAssetDataFromLocal() {
 const secData = {};
 
 function renderTrend(){
-  const year=parseInt(document.getElementById('trend-year').value);
+  const year=parseInt(document.getElementById('graph-year').value);
   const data=assetData[year]||{};
   const months=Object.keys(data).map(Number).sort((a,b)=>a-b);
   const area=document.getElementById('trend-area');
@@ -1113,7 +1151,7 @@ function renderTrend(){
     const diffStr=diff===null?'':(diff>=0?'+':'')+Math.round(diff/10000)+'万';
 
     const col=document.createElement('div');
-    col.style.cssText='flex:1;display:flex;flex-direction:column;align-items:center';
+    col.style.cssText='flex:0 0 auto;width:clamp(40px,calc(100%/'+months.length+'),80px);display:flex;flex-direction:column;align-items:center';
     // 前月比（最上部）
     const diffEl=document.createElement('div');
     diffEl.style.cssText=`font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${diffColor};white-space:nowrap;height:14px;display:flex;align-items:center;justify-content:center`;
@@ -1149,14 +1187,13 @@ function renderTrend(){
     const isCur=m===currentMonth;
     const diffHtml=diff===null?'<td class="num" style="color:var(--text3);white-space:nowrap">—</td>'
       :`<td class="num ${diff>=0?'pos':'neg'}" style="white-space:nowrap">${diff>=0?'＋':'－'}¥${Math.abs(diff).toLocaleString()}</td>`;
-    const safe2=d.bank+d.cash;
-    tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}"><td style="white-space:nowrap">${m}月</td><td class="num">¥${safe2.toLocaleString()}</td><td class="num">¥${d.sec.toLocaleString()}</td><td class="num">¥${total.toLocaleString()}</td>${diffHtml}</tr>`;
+    tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}"><td style="white-space:nowrap">${m}月</td><td class="num">¥${total.toLocaleString()}</td>${diffHtml}</tr>`;
   });
 }
 
 // ── 現金推移グラフ ──
 function renderCashTrend() {
-  const year = parseInt(document.getElementById('cash-trend-year').value);
+  const year = parseInt(document.getElementById('graph-year').value);
   const data = assetData[year] || {};
   const months = Object.keys(data).map(Number).sort((a, b) => a - b);
   const chart = document.getElementById('cash-trend-chart');
@@ -1202,7 +1239,7 @@ function renderCashTrend() {
     const diffStr = diff === null ? '—' : (diff >= 0 ? '＋' : '－') + '¥' + Math.round(Math.abs(diff) / 10000) + '万';
 
     const col = document.createElement('div');
-    col.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding-bottom:2px';
+    col.style.cssText = 'flex:0 0 auto;width:clamp(40px,calc(100%/'+months.length+'),80px);display:flex;flex-direction:column;align-items:center;gap:2px;padding-bottom:2px';
     col.innerHTML =
       `<div style="font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${diffColor};white-space:nowrap;text-align:center;height:14px;display:flex;align-items:center;justify-content:center">${diffStr}</div>` +
       `<div style="width:70%;height:${barH}px;background:var(--accent);border-radius:3px 3px 0 0;opacity:${isCur ? 1 : 0.55}"></div>` +
@@ -1223,7 +1260,7 @@ function renderCashTrend() {
 }
 
 async function onCashTrendYearChange() {
-  const year = parseInt(document.getElementById('cash-trend-year').value);
+  const year = parseInt(document.getElementById('graph-year').value);
   if (GAS_URL) {
     const fetches = [];
     // 当年データ取得
@@ -1258,7 +1295,7 @@ async function onCashTrendYearChange() {
 
 // ── 証券利益率グラフ ──
 function renderRateChart(){
-  const year=parseInt(document.getElementById('rate-year').value);
+  const year=parseInt(document.getElementById('graph-year').value);
   const data=secData[year]||{};
   const months=Object.keys(data).map(Number).sort((a,b)=>a-b);
   if(!months.length){
@@ -1416,6 +1453,12 @@ function showCardNote(){
 }
 
 // ── ナビ ──
+function updateSettingDisplay() {
+  const rEl = document.getElementById('setting-rakuten-day');
+  const sEl = document.getElementById('setting-smbc-day');
+  if (rEl) rEl.textContent = '翌月 ' + (appSettings.rakuten_billing_day || 27) + '日';
+  if (sEl) sEl.textContent = '翌月 ' + (appSettings.smbc_billing_day || 10) + '日';
+}
 function switchScreen(id,btn){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active');btn.classList.add('active');}
 
 // ── Toast ──
@@ -1463,7 +1506,29 @@ function submitCash(){
 // ── モーダル各種 ──
 function openBalanceModal(label,current){openModal(label+'の残高を更新',`<div class="form-group"><label class="form-label">残高（円）</label><input type="number" class="form-input" value="${current}" inputmode="numeric"></div><button class="btn btn-primary" onclick="closeModal();showToast('残高を更新しました ✓')">更新する</button>`);}
 function openSecuritiesModal(){showToast('証券カードから損益を更新できます');}
-function openDayModal(name,current){openModal(name+'の引落日',`<div class="form-group"><label class="form-label">引落日（毎月何日）</label><input type="number" class="form-input" value="${current}" min="1" max="31" inputmode="numeric"></div><div style="margin-bottom:14px;font-size:11px;color:var(--text3)">「翌月」固定。例：27 → 翌月27日引落</div><button class="btn btn-primary" onclick="closeModal();showToast('引落日を保存しました ✓')">保存する</button>`);}
+function openDayModal(name, current) {
+  const key = name === '楽天カード' ? 'rakuten_billing_day' : 'smbc_billing_day';
+  const elId = name === '楽天カード' ? 'setting-rakuten-day' : 'setting-smbc-day';
+  openModal(name + 'の引落日', `
+    <div class="form-group">
+      <label class="form-label">引落日（毎月何日）</label>
+      <input type="number" class="form-input" id="day-input" value="${current}" min="1" max="31" inputmode="numeric">
+    </div>
+    <div style="margin-bottom:14px;font-size:11px;color:var(--text3)">「翌月」固定。例：27 → 翌月27日引落</div>
+    <button class="btn btn-primary" onclick="saveBillingDay('${key}','${elId}')">保存する</button>
+  `);
+}
+async function saveBillingDay(key, elId) {
+  const val = parseInt(document.getElementById('day-input')?.value) || 0;
+  if (!val || val < 1 || val > 31) { showToast('⚠ 1〜31の数値を入力してください', true); return; }
+  appSettings[key] = val;
+  localStorage.setItem('app_settings', JSON.stringify(appSettings));
+  const el = document.getElementById(elId);
+  if (el) el.textContent = '翌月 ' + val + '日';
+  closeModal();
+  showToast('引落日を保存しました ✓');
+  if (GAS_URL) await callGAS('saveSettings', { settings: { [key]: String(val) } });
+}
 function openAddAccountModal(){
   openModal('口座・資産を追加',`
     <div class="form-group">
@@ -1511,6 +1576,7 @@ let GAS_URL = localStorage.getItem('gas_url') || '';
 
 // ── 初期化 ──
 renderCategories();
+updateSettingDisplay();
 initYearSelectors();
 renderRecInputCard();
 loadAssetDataFromLocal();
@@ -1531,7 +1597,7 @@ function applyCache() {
     if (cache.summary?.ok) applySummaryData(cache.summary, cache.prevSummary);
     // 資産推移
     if (cache.trend?.ok && cache.trend.data?.length) {
-      const trendYear = parseInt(document.getElementById('trend-year').value);
+      const trendYear = parseInt(document.getElementById('graph-year').value);
       assetData[trendYear] = {};
       cache.trend.data.forEach(r => {
         const m = parseInt(r.yearMonth.split('/')[1]);
@@ -1550,7 +1616,7 @@ function applyCache() {
     }
     // 証券利益率
     if (cache.secRate?.ok && cache.secRate.data?.length) {
-      const rYear = parseInt(document.getElementById('rate-year').value);
+      const rYear = parseInt(document.getElementById('graph-year').value);
       secData[rYear] = {};
       cache.secRate.data.forEach(r => {
         const m = parseInt(r.yearMonth.split('/')[1]);
@@ -1583,7 +1649,7 @@ function applyCache() {
     }
     // 純資産推移（assetDataはtrendと共有）
     if (cache.trend?.ok && cache.trend.data?.length) {
-      const trendYear = parseInt(document.getElementById('trend-year').value);
+      const trendYear = parseInt(document.getElementById('graph-year').value);
       if (!assetData[trendYear]) {
         assetData[trendYear] = {};
         cache.trend.data.forEach(r => {
@@ -1616,7 +1682,7 @@ window.addEventListener('load', async () => {
     try {
       const year     = parseInt(document.getElementById('sum-year').value);
       const month    = parseInt(document.getElementById('sum-month').value);
-      const trendYear= parseInt(document.getElementById('trend-year').value);
+      const trendYear= parseInt(document.getElementById('graph-year').value);
       const yearMonth= `${year}/${String(month).padStart(2,'0')}`;
       let d = await callGAS('getInitialData', { year, month, yearMonth });
       // GAS未更新の場合は個別リクエストにフォールバック（前年データも同時取得）
@@ -1668,7 +1734,7 @@ window.addEventListener('load', async () => {
       renderCashTrend();
       // 証券利益率
       if (d.secRate?.ok && d.secRate.data?.length) {
-        const rYear = parseInt(document.getElementById('rate-year').value);
+        const rYear = parseInt(document.getElementById('graph-year').value);
         secData[rYear] = {};
         d.secRate.data.forEach(r => {
           const m = parseInt(r.yearMonth.split('/')[1]);
