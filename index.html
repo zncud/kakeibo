@@ -1962,13 +1962,9 @@ async function handlePDFFile(file) {
       return;
     }
 
-    // デバッグ: 抽出テキストをコンソールに出力
-    console.log('[PDF RAW TEXT]\n' + fullText);
-    window._lastPdfText = fullText; // コンソールで window._lastPdfText でも確認可能
-
     const rows = parsePDF(fullText, cardType, file.name);
     if (!rows.length) {
-      showToast('⚠ データが見つかりません。コンソールの [PDF RAW TEXT] を確認してください', true);
+      showToast('⚠ データが見つかりません。PDF形式が想定と違う可能性があります', true);
       return;
     }
 
@@ -1995,82 +1991,129 @@ function parsePDF(text, cardType, filename) {
 }
 
 // 楽天カードPDFパーサー
-// 行フォーマット: "2026/03/25\tSuica（携帯決済）\t本人*\t1回払い\t1,000\t0\t1,000\t1,000\t0"
+// 実データ例:
+// "2026/03/25\t Ｓｕｉｃａ（携帯決済）\t \t本人* \t1回払い\t \t1,000 \t0 \t1,000 \t1,000 \t0"
+// "2026/03/16\t ﾗｲﾌﾐﾌﾞﾃﾝ\t \t本人* \t1回払い\t \t559 \t0 \t559 \t559 \t0"
 function parseRakutenPDF(lines) {
   const rows = [];
+  const skipShops = ['楽天証券', '楽天キャッシュ'];
+
   lines.forEach(line => {
     const s = line.trim();
-    const m = s.match(
-      /^(\d{4}\/\d{2}\/\d{2})\s+(.+?)\s+本人\*?\s+1回払い\s+([\d,]+)\s+0\s+[\d,]+\s+[\d,]+\s+0$/
-    );
-    if (!m) return;
-    const date = m[1];
-    const shop = m[2].trim();
-    const amount = parseAmount(m[3]);
-    if (date && shop && amount > 0) rows.push({ date, shop, amount });
+    // YYYY/MM/DD で始まる行のみ対象
+    if (!/^\d{4}\/\d{2}\/\d{2}/.test(s)) return;
+
+    // タブ・全角スペースで分割してトークン化
+    const tokens = s.split(/[\t\u3000]+/).map(t => t.trim()).filter(Boolean);
+    if (tokens.length < 3) return;
+
+    const date = tokens[0];
+    if (!/^\d{4}\/\d{2}\/\d{2}$/.test(date)) return;
+
+    // 店名: 日付の次、「本人」より前のトークンを結合
+    const honninIdx = tokens.findIndex(t => /^本人/.test(t));
+    if (honninIdx < 0) return;
+    const shop = tokens.slice(1, honninIdx).join('').trim();
+    if (!shop) return;
+
+    // スキップ（積立・チャージ）
+    if (skipShops.some(w => shop.includes(w))) return;
+
+    // 金額: 「1回払い」の後の最初の数値
+    const haraiIdx = tokens.findIndex(t => t.includes('払い') || t.includes('払'));
+    if (haraiIdx < 0) return;
+    let amount = 0;
+    for (let i = haraiIdx + 1; i < tokens.length; i++) {
+      const v = parseAmount(tokens[i]);
+      if (v > 0 && v < 10000000) { amount = v; break; }
+    }
+
+    if (date && shop && amount > 0) {
+      rows.push({ date, shop, amount });
+    }
   });
   return rows;
 }
 
 // 三井住友カードPDFパーサー
-// 行フォーマット: "26/02/28\t大阪ガス利用料金\t413\t１\t１\t413"
+// 実データ例:
+// "# 26/02/28\t 大阪ガス利用料金\t \t413 １ １ \t413 ２６年\t ２月 ..."
+// "B# 26/03/03\t 関西電力\t 電気 \t3,718\t １ １ \t3,718\t ..."
+// "CLAUDE.AI SUBSCRIPTION (SAN FRA"  ← 前行
+// "B# 26/03/12\t \t3,277\t １ １ \t3,277\t ..."  ← 金額行
+// "NCISCO)\t "  ← 後続行
 function parseSMBCPDF(lines) {
   const rows = [];
-  let pendingShopPrefix = '';
+  let pendingShop = ''; // 英字店名の前半
 
   for (let i = 0; i < lines.length; i++) {
     const s = lines[i].trim();
     if (!s) continue;
 
-    // 店名前半だけの行を保持（英字が含まれていて日付で始まらない行）
-    if (
-      !/^(?:B#|#)?\s*\d{2}\/\d{2}\/\d{2}/.test(s) &&
-      /[A-Za-zＡ-Ｚａ-ｚ()]/.test(s) &&
-      !/[◎¥円]$/.test(s)
-    ) {
-      pendingShopPrefix = s;
+    // YY/MM/DD で始まる明細行かチェック（B# や # プレフィックスあり）
+    const dateMatch = s.match(/^(?:B#|#)?\s*(\d{2})\/(\d{2})\/(\d{2})\s+(.*)/);
+
+    if (!dateMatch) {
+      // 明細行でない → 英字店名の前半かもしれない
+      // 日本語ヘッダーや注記は無視
+      if (/[A-Za-z]/.test(s) && !/[◎＜※]/.test(s) && !s.startsWith('1/') && s.length < 60) {
+        pendingShop = s;
+      } else {
+        // 前の行の店名後半（例: "NCISCO)"）
+        // pendingShopが空でなければ無視（既に使用済み）
+      }
       continue;
     }
 
-    // 通常の明細行
-    const m = s.match(/^(?:B#|#)?\s*(\d{2})\/(\d{2})\/(\d{2})\s+(.*)$/);
-    if (!m) continue;
+    const yy = dateMatch[1], mm = dateMatch[2], dd = dateMatch[3];
+    const date = `20${yy}/${mm}/${dd}`;
+    const body = dateMatch[4].trim();
 
-    const yy = m[1], mm = m[2], dd = m[3];
-    let body = m[4].replace(/\s+/g, ' ').trim();
+    // トークン分割
+    const tokens = body.split(/[\t\u3000\s]+/).map(t => t.trim()).filter(Boolean);
 
-    // 金額を抽出
-    const amtMatch = body.match(/([\d,]+)\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+/);
-    if (!amtMatch) continue;
-    const amount = parseAmount(amtMatch[1]);
-    if (!(amount > 0)) continue;
+    // 金額を探す（純粋な数字カンマ区切り、100万未満）
+    let amount = 0;
+    for (const t of tokens) {
+      const v = parseAmount(t);
+      if (v > 0 && v < 10000000) { amount = v; break; }
+    }
+    if (!amount) { pendingShop = ''; continue; }
 
+    // 店名を構築
     let shop = '';
-
-    if (/^[\d,]+\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+/.test(body)) {
-      // 店名が前行にあるケース（Claudeなど英字店名が途切れたケース）
-      let suffix = '';
-      const next = (lines[i + 1] || '').trim();
-      if (next && !/^(?:B#|#)?\s*\d{2}\/\d{2}\/\d{2}/.test(next) && !/^[＜※]/.test(next)) {
-        suffix = next;
-        i++;
+    if (pendingShop) {
+      // 英字店名が前行にあったケース（Claude等）
+      // 次行に後半がある場合も結合
+      const nextLine = (lines[i + 1] || '').trim();
+      if (nextLine && !/^(?:B#|#)?\s*\d{2}\/\d{2}\/\d{2}/.test(nextLine)
+          && !/^[＜※様]/.test(nextLine) && !nextLine.startsWith('1/')
+          && !/^\d+,\d+$/.test(nextLine) && nextLine.length < 30) {
+        shop = (pendingShop + ' ' + nextLine).trim();
+        i++; // 次行消費
+      } else {
+        shop = pendingShop;
       }
-      shop = [pendingShopPrefix, suffix].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-      pendingShopPrefix = '';
+      pendingShop = '';
     } else {
-      // 通常ケース: 金額の前までを店名
-      shop = body.replace(/\s+[\d,]+\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+.*$/, '').trim();
-      if (pendingShopPrefix) {
-        shop = `${pendingShopPrefix} ${shop}`.replace(/\s+/g, ' ').trim();
-        pendingShopPrefix = '';
-      }
+      // 通常ケース: 金額より前のトークンが店名
+      // トークンから金額以降を除去
+      const amtIdx = tokens.findIndex(t => parseAmount(t) === amount);
+      const shopTokens = tokens.slice(0, amtIdx);
+      // 全角数字（１２３）や記号は除外
+      shop = shopTokens
+        .filter(t => !/^[０-９\d◎]+$/.test(t))
+        .join('');
+      shop = shop.trim();
     }
 
-    const date = `20${yy}/${mm}/${dd}`;
-    if (shop && amount > 0) rows.push({ date, shop, amount });
+    if (shop && amount > 0) {
+      rows.push({ date, shop, amount });
+    }
   }
   return rows;
 }
+
 
 // ── CSV取込（実際のファイル読み込み＋GAS送信）──
 async function handleCSVReal(input) {
