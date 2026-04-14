@@ -326,6 +326,23 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
     </table>
   </div>
 
+  <!-- 現金推移 -->
+  <div class="card" style="border-color:#fdd8c8">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="card-label" style="margin-bottom:0">💴 現金推移</div>
+      <select class="period-select" style="font-size:11px;padding:4px 10px" id="cash-trend-year" onchange="onCashTrendYearChange()">
+      </select>
+    </div>
+    <div style="position:relative;height:100px" id="cash-trend-wrap">
+      <div id="cash-trend-chart" style="display:flex;align-items:flex-end;gap:4px;height:84px;padding:0 2px"></div>
+    </div>
+    <div style="display:flex;margin-top:4px" id="cash-trend-labels"></div>
+    <table class="asset-table" style="margin-top:14px">
+      <thead><tr><th>月</th><th style="text-align:right">現金残高</th><th style="text-align:right">前月比</th></tr></thead>
+      <tbody id="cash-trend-tbody"></tbody>
+    </table>
+  </div>
+
   <!-- 証券利益率推移 -->
   <div class="card" style="border-color:#e8dcf8">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -941,7 +958,7 @@ function calcLocalSummary(year, month) {
 // ── 年度セレクタ初期化（2021〜今年） ──
 function initYearSelectors() {
   const currentYear = new Date().getFullYear();
-  ['trend-year', 'rate-year'].forEach(id => {
+  ['trend-year', 'rate-year', 'cash-trend-year'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     sel.innerHTML = '';
@@ -961,10 +978,12 @@ async function onTrendYearChange() {
   if (GAS_URL && (!assetData[year] || Object.keys(assetData[year]).length === 0)) {
     await refreshTrend();
   } else {
-    // GASなし：ローカルから再読込して描画
     if (!GAS_URL) loadAssetDataFromLocal();
     renderTrend();
   }
+  // 現金推移も同じ年に合わせて更新
+  const cashSel = document.getElementById('cash-trend-year');
+  if (cashSel) { cashSel.value = year; renderCashTrend(); }
 }
 
 async function onRateYearChange() {
@@ -1085,6 +1104,76 @@ function renderTrend(){
     const isCur=m===currentMonth;
     tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}""><td>${m}月</td><td class="num">¥${d.bank.toLocaleString()}</td><td class="num">¥${d.sec.toLocaleString()}</td><td class="num">¥${d.cash.toLocaleString()}</td><td class="num" style="color:var(--blue)">¥${total.toLocaleString()}</td></tr>`;
   });
+}
+
+// ── 現金推移グラフ ──
+function renderCashTrend() {
+  const year = parseInt(document.getElementById('cash-trend-year').value);
+  const data = assetData[year] || {};
+  const months = Object.keys(data).map(Number).sort((a, b) => a - b);
+  const chart = document.getElementById('cash-trend-chart');
+  const labels = document.getElementById('cash-trend-labels');
+  const tbody = document.getElementById('cash-trend-tbody');
+
+  if (!months.length) {
+    chart.innerHTML = '<div style="width:100%;text-align:center;padding:24px 0;color:var(--text3);font-size:12px">' + year + '年のデータがありません</div>';
+    if (labels) labels.innerHTML = '';
+    if (tbody) tbody.innerHTML = '';
+    return;
+  }
+
+  const cashValues = months.map(m => data[m].cash);
+  const maxCash = Math.max(...cashValues, 1);
+  const minCash = Math.min(...cashValues);
+  const range = maxCash - minCash || 1;
+  const barMaxH = 84;
+  const now = new Date();
+  const currentMonth = (year === now.getFullYear()) ? now.getMonth() + 1 : null;
+
+  chart.innerHTML = '';
+  labels.innerHTML = '';
+
+  months.forEach((m, idx) => {
+    const cash = cashValues[idx];
+    const prev = idx > 0 ? cashValues[idx - 1] : null;
+    const diff = prev !== null ? cash - prev : null;
+    const barH = Math.max(4, Math.round((cash - minCash) / range * (barMaxH - 16) + 8));
+    const isCur = m === currentMonth;
+    const diffColor = diff === null ? 'var(--text3)' : diff >= 0 ? 'var(--mint)' : 'var(--red)';
+    const diffStr = diff === null ? '' : (diff >= 0 ? '+' : '') + Math.round(diff / 10000) + '万';
+
+    const col = document.createElement('div');
+    col.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:' + barMaxH + 'px;position:relative';
+    col.innerHTML =
+      '<div style="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);margin-bottom:2px;white-space:nowrap">¥' + Math.round(cash / 10000) + '万</div>' +
+      '<div style="width:70%;height:' + barH + 'px;background:var(--accent);border-radius:3px 3px 0 0;opacity:' + (isCur ? 1 : 0.55) + '"></div>' +
+      (diffStr ? '<div style="position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:' + diffColor + ';white-space:nowrap">' + diffStr + '</div>' : '');
+    chart.appendChild(col);
+
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'flex:1;text-align:center;font-size:9px;font-family:'DM Mono',monospace;color:' + (isCur ? 'var(--accent)' : 'var(--text3)') + ';font-weight:' + (isCur ? 700 : 400) + ';margin-top:2px';
+    lbl.textContent = m + '月';
+    labels.appendChild(lbl);
+  });
+
+  tbody.innerHTML = '';
+  months.forEach((m, idx) => {
+    const cash = cashValues[idx];
+    const prev = idx > 0 ? cashValues[idx - 1] : null;
+    const diff = prev !== null ? cash - prev : null;
+    const isCur = m === currentMonth;
+    const diffHtml = diff === null ? '<td class="num" style="color:var(--text3)">—</td>'
+      : '<td class="num ' + (diff >= 0 ? 'pos' : 'neg') + '">' + (diff >= 0 ? '＋' : '') + '¥' + diff.toLocaleString() + '</td>';
+    tbody.innerHTML += '<tr style="' + (isCur ? 'font-weight:700;' : '') + '"><td>' + m + '月</td><td class="num">¥' + cash.toLocaleString() + '</td>' + diffHtml + '</tr>';
+  });
+}
+
+async function onCashTrendYearChange() {
+  const year = parseInt(document.getElementById('cash-trend-year').value);
+  if (GAS_URL && (!assetData[year] || Object.keys(assetData[year]).length === 0)) {
+    await refreshTrend(); // assetDataを取得（現金データも含まれる）
+  }
+  renderCashTrend();
 }
 
 // ── 証券利益率グラフ ──
@@ -1349,6 +1438,7 @@ initYearSelectors();
 renderRecInputCard();
 loadAssetDataFromLocal();
 renderTrend();
+renderCashTrend();
 renderRateChart();
 refreshSummaryLocal();
 onRecPeriodChange();
@@ -1452,6 +1542,7 @@ window.addEventListener('load', async () => {
           assetData[trendYear][m] = { bank: r.bank, sec: r.sec, cash: r.cash };
         });
         renderTrend();
+        renderCashTrend();
       }
       // 証券利益率
       if (d.secRate?.ok && d.secRate.data?.length) {
@@ -2806,12 +2897,13 @@ async function refreshTrend() {
   data.data.forEach(d => {
     const m = parseInt(d.yearMonth.split('/')[1]);
     assetData[year][m] = {
-      bank: d.bank,   // 銀行系合計（ゆうちょ+楽天+PayPay）
-      sec:  d.sec,    // リスク資産（証券評価額）
-      cash: d.cash,   // 現金
+      bank: d.bank,
+      sec:  d.sec,
+      cash: d.cash,
     };
   });
   renderTrend();
+  renderCashTrend();
 }
 
 async function refreshSecRate() {
