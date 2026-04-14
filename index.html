@@ -1693,7 +1693,6 @@ async function loadDetails() {
     }
   }
   // GASなし：ローカルストアから
-  const ym = `${year}/${String(month).padStart(2,'0')}`;
   detailRows = [];
   ['rakuten','smbc','paypay','bank','cash'].forEach(src => {
     const srcRows = localStore[src] || [];
