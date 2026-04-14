@@ -1962,9 +1962,13 @@ async function handlePDFFile(file) {
       return;
     }
 
+    // デバッグ: 抽出テキストをコンソールに出力
+    console.log('[PDF RAW TEXT]\n' + fullText);
+    window._lastPdfText = fullText; // コンソールで window._lastPdfText でも確認可能
+
     const rows = parsePDF(fullText, cardType, file.name);
     if (!rows.length) {
-      showToast('⚠ データが見つかりません。PDF形式が想定と違う可能性があります', true);
+      showToast('⚠ データが見つかりません。コンソールの [PDF RAW TEXT] を確認してください', true);
       return;
     }
 
