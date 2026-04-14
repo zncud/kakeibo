@@ -14,12 +14,11 @@
 <!-- フォント -->
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <!-- PDF.js -->
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
-// PDF.js ワーカーとCMapをスクリプト読み込み直後に設定
+// ワーカーを無効化してメインスレッドで処理（CMap CORS問題を回避）
 if (typeof pdfjsLib !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 }
 </script>
 <style>
@@ -623,10 +622,7 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
 // ── 収支カテゴリ定義（先頭で定義）──
 const INCOME_CATEGORIES = ['給与','ボーナス','副業','臨時収入','その他収入'];
 let entryMode = 'income'; // 'income' | 'expense'
-let appSettings = {
-  rakuten_billing_day: 27,
-  smbc_billing_day: 10,
-};
+
 // ── 口座管理（一括入力・一括登録）──
 
 const DEFAULT_ACCOUNTS = [
@@ -1363,18 +1359,23 @@ window.addEventListener('load', async () => {
   if (GAS_URL && el) el.textContent = '設定済';
   if (GAS_URL) {
     try {
-      const settingsRes = await callGAS('getSettings');
-      if (settingsRes?.ok && settingsRes.settings) {
-        appSettings = {
-          ...appSettings,
-          ...settingsRes.settings,
-        };
-      }
       const year     = parseInt(document.getElementById('sum-year').value);
       const month    = parseInt(document.getElementById('sum-month').value);
       const trendYear= parseInt(document.getElementById('trend-year').value);
       const yearMonth= `${year}/${String(month).padStart(2,'0')}`;
-      const d = await callGAS('getInitialData', { year, month, yearMonth });
+      let d = await callGAS('getInitialData', { year, month, yearMonth });
+      // GAS未更新の場合は個別リクエストにフォールバック
+      if (!d?.ok) {
+        const [summary, prevSummary, trend, secRate, latestAsset, cats] = await Promise.all([
+          callGAS('getSummary', { year, month }),
+          callGAS('getSummary', { year: month===1?year-1:year, month: month===1?12:month-1 }),
+          callGAS('getAssetTrend', { year: trendYear }),
+          callGAS('getSecRate', { year: trendYear }),
+          callGAS('getLatestAsset', { yearMonth }),
+          callGAS('getCategories'),
+        ]);
+        d = { ok: true, summary, prevSummary, trend, secRate, latestAsset, categories: cats };
+      }
       if (!d?.ok) return;
 
       // カテゴリ
@@ -1410,7 +1411,7 @@ window.addEventListener('load', async () => {
       // 資産照合
       if (d.latestAsset?.ok) applyLatestAsset(d.latestAsset);
 
-    } catch(e) { console.warn('[init] getInitialData failed', e); }
+    } catch(e) {}
   }
 });
 
@@ -1892,82 +1893,55 @@ async function handleFileInput(input) {
 // ── PDF取込 ──
 async function handlePDFFile(file) {
   const cardType = document.getElementById('card-select').value;
-  if (!cardType) {
-    showToast('⚠ カード種別を先に選択してください', true);
-    return;
-  }
+  if (!cardType) { showToast('⚠ カード種別を先に選択してください', true); return; }
 
   showToast('📄 PDF解析中…');
 
   try {
+    // PDF.jsでテキスト抽出
     if (typeof pdfjsLib === 'undefined') {
-      showToast('⚠ PDF.jsの読み込みに失敗しました', true);
-      return;
+      showToast('⚠ PDF.jsの読み込みに失敗しました', true); return;
     }
-
     const buffer = await file.arrayBuffer();
-
-    const loadingTask = pdfjsLib.getDocument({
+    // ワーカーを無効化してメインスレッドで処理
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+    const pdf = await pdfjsLib.getDocument({
       data: buffer,
-      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
+      cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
       cMapPacked: true,
-      standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/standard_fonts/',
-      useWorkerFetch: true,
-      isEvalSupported: true,
-      useSystemFonts: true,
-      disableFontFace: false,
-    });
-
-    const pdf = await loadingTask.promise;
+    }).promise;
 
     let fullText = '';
-
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const content = await page.getTextContent({
-        normalizeWhitespace: true,
-        disableCombineTextItems: false,
-      });
-
-      const items = content.items || [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      // アイテムをY座標でグループ化して行ごとに結合
+      const items = content.items;
+      // Y座標でグループ化、同じ行内はX座標順でタブ区切り
       const lines = {};
-
       items.forEach(item => {
-        if (!item.str) return;
         const y = Math.round(item.transform[5] * 10) / 10;
         const x = item.transform[4];
         if (!lines[y]) lines[y] = [];
         lines[y].push({ x, str: item.str });
       });
-
       Object.keys(lines)
-        .map(Number)
-        .sort((a, b) => b - a)
+        .map(Number).sort((a,b) => b-a)
         .forEach(y => {
-          const sorted = lines[y].sort((a, b) => a.x - b.x);
-          if (!sorted.length) return;
-
+          const sorted = lines[y].sort((a,b) => a.x - b.x);
+          // X座標の差が大きい（20px以上）ときにタブを挿入
           let row = sorted[0].str;
           for (let i = 1; i < sorted.length; i++) {
-            const gap = sorted[i].x - sorted[i - 1].x;
-            row += (gap > 20 ? '\t' : '') + sorted[i].str;
+            const gap = sorted[i].x - sorted[i-1].x - (sorted[i-1].str.length * 5);
+            row += (gap > 15 ? '\t' : '') + sorted[i].str;
           }
           fullText += row + '\n';
         });
     }
 
-    console.log('[PDF] 全抽出テキスト（デバッグ用）:\n' + fullText);
-
-    if (!fullText.trim()) {
-      showToast('⚠ PDFから文字を抽出できませんでした。画像PDFの可能性があります', true);
-      console.warn('[PDF] 抽出結果が空です');
-      return;
-    }
-
     const rows = parsePDF(fullText, cardType, file.name);
     if (!rows.length) {
-      showToast('⚠ データが見つかりません。PDF形式が想定と違う可能性があります', true);
-      console.warn('[PDF] parse結果0件');
+      showToast('⚠ データが見つかりません。コンソールのログを確認してください', true);
       return;
     }
 
@@ -1977,9 +1951,9 @@ async function handlePDFFile(file) {
     updatePreview(rows, cardType, filename);
     document.getElementById('csv-preview').style.display = 'block';
     window._pendingImport = { cardType, filename, rows };
-
     showToast(`✅ ${rows.length}件を検出しました`);
-  } catch (e) {
+
+  } catch(e) {
     console.error('[PDF] error:', e);
     showToast('⚠ PDF解析エラー: ' + e.message, true);
   }
@@ -2001,150 +1975,67 @@ function parsePDF(text, cardType, filename) {
 // 行フォーマット: "2026/03/25\tSuica（携帯決済）\t本人*\t1回払い\t1,000\t0\t1,000\t1,000\t0"
 function parseRakutenPDF(lines) {
   const rows = [];
+  const dateRe = /^(\d{4}\/\d{2}\/\d{2})/;
 
-  lines.forEach((line, idx) => {
-    const s = line.trim();
+  lines.forEach(line => {
+    const cols = line.split('\t').map(s => s.trim());
+    // 日付で始まる行を明細行と判断
+    const dateMatch = cols[0].match(dateRe);
+    if (!dateMatch) return;
 
-    const m = s.match(
-      /^(\d{4}\/\d{2}\/\d{2})\s+(.+?)\s+本人\*?\s+1回払い\s+([\d,]+)\s+0\s+[\d,]+\s+[\d,]+\s+0$/
-    );
-
-    if (!m) {
-      console.log('[RAKUTEN NG]', idx, s);
-      return;
+    const date  = dateMatch[1];
+    const shop  = cols[1] || '';
+    // 利用金額: cols[4]（手数料/利息の前）
+    let amount = 0;
+    for (let i = 2; i < cols.length; i++) {
+      const v = parseAmount(cols[i]);
+      if (v > 0 && v < 10000000) { amount = v; break; }
     }
-
-    const date = m[1];
-    const shop = m[2].trim();
-    const amount = parseAmount(m[3]);
-
+    // 楽天証券積立・楽天キャッシュチャージは支出として記録
     if (date && shop && amount > 0) {
       rows.push({ date, shop, amount });
     }
   });
-
   return rows;
 }
-function mergeSMBCLines(lines) {
-  const merged = [];
-  let carryTop = '';
 
-  for (let i = 0; i < lines.length; i++) {
-    const s = lines[i].trim();
-    if (!s) continue;
-
-    // 日付で始まらない行で、B# / # でも始まらない → 前置きテキストとして保持
-    if (!/^(?:B#|#)?\s*\d{2}\/\d{2}\/\d{2}/.test(s)) {
-      carryTop = carryTop ? `${carryTop} ${s}` : s;
-      continue;
-    }
-
-    let row = s;
-
-    // 直前に店名の前半があれば前につなぐ
-    if (carryTop) {
-      row = `${row} ${carryTop}`;
-      carryTop = '';
-    }
-
-    // 次の行が日付で始まらないなら、店名の続きとして後ろにつなぐ
-    while (i + 1 < lines.length) {
-      const next = lines[i + 1].trim();
-      if (!next) {
-        i++;
-        continue;
-      }
-      if (/^(?:B#|#)?\s*\d{2}\/\d{2}\/\d{2}/.test(next)) break;
-      row = `${row} ${next}`;
-      i++;
-    }
-
-    merged.push(row.replace(/\s+/g, ' ').trim());
-  }
-
-  return merged;
-}
 // 三井住友カードPDFパーサー
 // 行フォーマット: "26/02/28\t大阪ガス利用料金\t413\t１\t１\t413"
 function parseSMBCPDF(lines) {
   const rows = [];
-  let pendingShopPrefix = '';
+  // YY/MM/DD形式
+  const dateRe = /^(\d{2})\/(\d{2})\/(\d{2})/;
 
-  for (let i = 0; i < lines.length; i++) {
-    const s = lines[i].trim();
-    if (!s) continue;
+  lines.forEach(line => {
+    const cols = line.split('\t').map(s => s.trim());
+    const dateMatch = cols[0].match(dateRe);
+    if (!dateMatch) return;
 
-    // 1) Claudeみたいな「店名前半だけ」の行を保持
-    // 例: CLAUDE.AI SUBSCRIPTION (SAN FRA
-    if (
-      !/^(?:B#|#)?\s*\d{2}\/\d{2}\/\d{2}/.test(s) &&
-      /[A-Za-zＡ-Ｚａ-ｚ()]/.test(s) &&
-      !/[◎¥円]$/.test(s)
-    ) {
-      pendingShopPrefix = s;
-      console.log('[SMBC PREFIX]', pendingShopPrefix);
-      continue;
-    }
+    // YY/MM/DD → YYYY/MM/DD
+    const year  = '20' + dateMatch[1];
+    const month = dateMatch[2];
+    const day   = dateMatch[3];
+    const date  = `${year}/${month}/${day}`;
+    const shop  = cols[1] || '';
 
-    // 2) 通常の明細行
-    const m = s.match(/^(?:B#|#)?\s*(\d{2})\/(\d{2})\/(\d{2})\s+(.*)$/);
-    if (!m) continue;
-
-    const yy = m[1];
-    const mm = m[2];
-    const dd = m[3];
-    let body = m[4].replace(/\s+/g, ' ').trim();
-
-    // 金額を抽出
-    // 例: 3,277 １ １ 3,277 ...
-    const amtMatch = body.match(/([\d,]+)\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+/);
-    if (!amtMatch) {
-      console.log('[SMBC NG amount]', s);
-      continue;
-    }
-    const amount = parseAmount(amtMatch[1]);
-    if (!(amount > 0)) continue;
-
-    // body先頭が金額なら、店名は別行に飛んでいるケース
-    let shop = '';
-
-    if (/^[\d,]+\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+/.test(body)) {
-      // Claudeケース:
-      // 前行: CLAUDE.AI SUBSCRIPTION (SAN FRA
-      // 次行: NCISCO)
-      let suffix = '';
-      const next = (lines[i + 1] || '').trim();
-      if (
-        next &&
-        !/^(?:B#|#)?\s*\d{2}\/\d{2}\/\d{2}/.test(next) &&
-        !/^[＜※]/.test(next)
-      ) {
-        suffix = next;
-        i++; // 次行を消費
-      }
-
-      shop = [pendingShopPrefix, suffix].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-      pendingShopPrefix = '';
-    } else {
-      // 通常ケース: 金額の前までを店名
-      shop = body.replace(/\s+[\d,]+\s+[０-９\d]+\s+[０-９\d]+\s+[\d,]+.*$/, '').trim();
-      if (pendingShopPrefix) {
-        shop = `${pendingShopPrefix} ${shop}`.replace(/\s+/g, ' ').trim();
-        pendingShopPrefix = '';
+    // 金額: cols[2]が利用金額
+    let amount = parseAmount(cols[2]);
+    if (!amount) {
+      // colsをスキャン
+      for (let i = 2; i < Math.min(cols.length, 6); i++) {
+        const v = parseAmount(cols[i]);
+        if (v > 0) { amount = v; break; }
       }
     }
 
-    const year = '20' + yy;
-    const date = `${year}/${mm}/${dd}`;
-
-    console.log('[SMBC OK]', { date, shop, amount, raw: s });
-
-    if (shop && amount > 0) {
-      rows.push({ date, shop, amount });
+    if (date && shop && amount > 0 && !shop.includes('ご利用') && !shop.includes('お支払')) {
+      // 引落日を計算（SMBCは翌月10日）
+      const d = new Date(`${year}-${month}-${day}`);
+      const billing = new Date(d.getFullYear(), d.getMonth() + 1, 10);
+      const billingDate = `${billing.getFullYear()}/${String(billing.getMonth()+1).padStart(2,'0')}/${String(billing.getDate()).padStart(2,'0')}`;
+      rows.push({ date: billingDate, shop, amount });
     }
-  }
-
-  console.log('[SMBC rows]', rows);
+  });
   return rows;
 }
 
@@ -2271,21 +2162,7 @@ function parseAmount(str) {
   if (!str) return 0;
   return parseInt(str.replace(/[¥,円\s]/g, '')) || 0;
 }
-function calcBillingDateLocal(useDate, billingDay) {
-  const m = String(useDate).match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
-  if (!m) return useDate;
 
-  let y = parseInt(m[1], 10);
-  let mo = parseInt(m[2], 10);
-
-  mo += 1;
-  if (mo > 12) {
-    mo = 1;
-    y += 1;
-  }
-
-  return `${y}/${String(mo).padStart(2, '0')}/${String(billingDay).padStart(2, '0')}`;
-}
 // CSVの日付から取込月を自動推測してセレクタにセット
 function autoDetectImportMonth(rows, cardType) {
   // 最初の有効な日付を拾う
@@ -2315,47 +2192,25 @@ function autoDetectImportMonth(rows, cardType) {
 }
 
 function updatePreview(rows, cardType, filename) {
-  const isRakuten = cardType === 'rakuten';
-  const isSMBC = cardType === 'smbc';
   const isPayPay = cardType === 'paypay';
   const isBank = cardType === 'bank';
-
-  document.getElementById('preview-date-header').textContent =
-    (isRakuten || isSMBC) ? '引落日' : '利用日';
-
+  document.getElementById('preview-date-header').textContent = (isPayPay || isBank) ? '利用日' : '利用日';
   const tbody = document.getElementById('preview-tbody');
   const show = rows.slice(0, 5);
-
   tbody.innerHTML = show.map(r => {
-    let displayDate = r.date || '';
-
-    if (isRakuten) {
-      displayDate = calcBillingDateLocal(r.date, parseInt(appSettings.rakuten_billing_day || 27, 10));
-    } else if (isSMBC) {
-      displayDate = calcBillingDateLocal(r.date, parseInt(appSettings.smbc_billing_day || 10, 10));
-    }
-
     const amt = r.amount || r.withdrawal || 0;
-    return `<tr>
-      <td style="color:var(--text3);font-size:10px">${displayDate}</td>
-      <td>${r.shop}</td>
-      <td class="amt">¥${amt.toLocaleString()}</td>
-    </tr>`;
+    return `<tr><td style="color:var(--text3);font-size:10px">${r.date || ''}</td><td>${r.shop}</td><td class="amt">¥${amt.toLocaleString()}</td></tr>`;
   }).join('');
-
+  // 残り件数
   const moreEl = document.getElementById('preview-more');
   if (moreEl) {
-    if (rows.length > 5) {
-      moreEl.style.display = 'block';
-      moreEl.textContent = `…他${rows.length - 5}件`;
-    } else {
-      moreEl.style.display = 'none';
-    }
+    if (rows.length > 5) { moreEl.style.display='block'; moreEl.textContent=`…他${rows.length - 5}件`; }
+    else moreEl.style.display='none';
   }
-
+  // 件数バッジ更新
   const badge = document.getElementById('preview-count-badge');
   if (badge) badge.textContent = rows.length + '件';
-
+  // 合計金額更新
   const total = rows.reduce((s, r) => s + (r.amount || r.withdrawal || 0), 0);
   const totalAmtEl = document.getElementById('preview-total');
   if (totalAmtEl) totalAmtEl.textContent = '¥' + total.toLocaleString();
@@ -2749,10 +2604,9 @@ async function refreshSummary() {
 }
 
 async function refreshTrend() {
-  console.log('[refreshTrend] called, year=', document.getElementById('trend-year')?.value);
   const year = parseInt(document.getElementById('trend-year').value);
   const data = await callGAS('getAssetTrend', { year });
-  if (!data?.ok || !data.data.length) { console.warn('[refreshTrend] no data:', JSON.stringify(data)); return; }
+  if (!data?.ok || !data.data.length) return;
 
   assetData[year] = {};
   data.data.forEach(d => {
