@@ -1393,6 +1393,16 @@ function applyCache() {
     if (cache.keywordRules?.ok && Array.isArray(cache.keywordRules.rules) && cache.keywordRules.rules.length) {
       keywordRules = cache.keywordRules.rules;
     }
+    // 明細キャッシュ
+    if (cache.details?.ok && cache.cachedAt) {
+      const now = new Date();
+      const cacheDate = new Date(cache.cachedAt);
+      const ym = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}`;
+      const cacheYM = `${cacheDate.getFullYear()}/${String(cacheDate.getMonth()+1).padStart(2,'0')}`;
+      if (ym === cacheYM) {
+        detailCache[ym] = cache.details.rows;
+      }
+    }
   } catch(e) {}
 }
 
@@ -1456,6 +1466,13 @@ window.addEventListener('load', async () => {
       // 資産照合
       if (d.latestAsset?.ok) applyLatestAsset(d.latestAsset);
 
+      // 明細キャッシュ（ページに飛んだとき即座に表示するため保持）
+      if (d.details?.ok) {
+        const year  = parseInt(document.getElementById('sum-year').value);
+        const month = parseInt(document.getElementById('sum-month').value);
+        detailCache[`${year}/${String(month).padStart(2,'0')}`] = d.details.rows;
+      }
+
       // 今回のデータをキャッシュ保存
       localStorage.setItem('summary_cache', JSON.stringify({
         summary: d.summary,
@@ -1465,6 +1482,7 @@ window.addEventListener('load', async () => {
         latestAsset: d.latestAsset,
         categories: d.categories,
         keywordRules: d.keywordRules,
+        details: d.details,
         cachedAt: Date.now(),
       }));
 
@@ -1531,6 +1549,8 @@ function guessCategory(shopName) {
 // 現在表示中の明細データ
 let detailRows = [];
 let detailFilter = 'all';
+// 明細のメモリキャッシュ（yearMonth → rows[]）
+const detailCache = {};
 
 const SRC_LABELS = {
   rakuten: { label: '楽天', cls: 'src-rakuten' },
@@ -1550,12 +1570,32 @@ function setDetailFilter(src, btn) {
 async function loadDetails() {
   const year  = parseInt(document.getElementById('det-year').value);
   const month = parseInt(document.getElementById('det-month').value);
+  const ym = `${year}/${String(month).padStart(2,'0')}`;
+
+  // キャッシュがあれば即座に表示
+  if (detailCache[ym]) {
+    detailRows = detailCache[ym].map((r, i) => ({ ...r, _uid: `${r.src}_${r.rowNum ?? i}` }));
+    renderDetails();
+    // バックグラウンドで最新データを取得して更新
+    if (GAS_URL) {
+      callGAS('getDetails', { year, month }).then(data => {
+        if (data?.ok) {
+          detailCache[ym] = data.rows;
+          detailRows = data.rows.map((r, i) => ({ ...r, _uid: `${r.src}_${r.rowNum ?? i}` }));
+          renderDetails();
+        }
+      });
+    }
+    return;
+  }
+
   document.getElementById('det-list').innerHTML =
     '<div style="text-align:center;padding:24px;color:var(--text3);font-size:12px">読込中…</div>';
 
   if (GAS_URL) {
     const data = await callGAS('getDetails', { year, month });
     if (data?.ok) {
+      detailCache[ym] = data.rows;
       detailRows = data.rows.map((r, i) => ({ ...r, _uid: `${r.src}_${r.rowNum ?? i}` }));
       renderDetails();
       return;
@@ -1732,6 +1772,9 @@ async function submitDeleteDetail(uid) {
   if (i < 0) return;
   const row = detailRows[i];
   detailRows.splice(i, 1);
+  // キャッシュも更新
+  const delYM = String(row.date || '').substring(0, 7);
+  if (detailCache[delYM]) detailCache[delYM] = detailRows.map(r => ({...r}));
   closeModal();
   renderDetails();
 
@@ -2395,6 +2438,8 @@ async function importCSVToGAS() {
     if (result.ok) {
       storeImportedRows(pending.cardType, taggedRows);
       importedFiles.push(pending.filename);
+      // 明細キャッシュをクリアして次回再取得
+      delete detailCache[ym];
       showToast(`✅ ${result.count}件を取込みました（${ym}分）`);
       document.getElementById('csv-preview').style.display = 'none';
       window._pendingImport = null;
