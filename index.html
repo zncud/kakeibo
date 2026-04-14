@@ -196,7 +196,7 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
 
 .asset-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px}
 .asset-table th{text-align:left;padding:5px 8px;color:var(--text3);font-family:'DM Mono',monospace;font-weight:400;font-size:10px;letter-spacing:.1em;border-bottom:1px solid var(--border)}
-.asset-table td{padding:7px 8px;border-bottom:1px solid var(--border);color:var(--text2)}
+.asset-table td{padding:7px 8px;border-bottom:1px solid var(--border);color:var(--text2);white-space:nowrap}
 .asset-table tr:last-child td{border-bottom:none}
 .asset-table .num{font-family:'DM Mono',monospace;text-align:right;color:var(--text);font-weight:500}
 .asset-table .pos{color:var(--mint)!important}
@@ -1148,9 +1148,9 @@ function renderTrend(){
     const prevTotal=idx>0?totals[idx-1]:prevYearLastTotal;
     const diff=prevTotal!==null?total-prevTotal:null;
     const isCur=m===currentMonth;
-    const diffHtml=diff===null?'<td class="num" style="color:var(--text3)">—</td>'
-      :`<td class="num ${diff>=0?'pos':'neg'}">${diff>=0?'＋':'－'}¥${Math.abs(diff).toLocaleString()}</td>`;
-    tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}"><td style="white-space:nowrap">${m}月</td><td class="num">¥${d.bank.toLocaleString()}</td><td class="num">¥${d.sec.toLocaleString()}</td><td class="num">¥${d.cash.toLocaleString()}</td><td class="num">¥${total.toLocaleString()}</td>${diffHtml}</tr>`;
+    const diffHtml=diff===null?'<td class="num" style="color:var(--text3);white-space:nowrap">—</td>'
+      :`<td class="num ${diff>=0?'pos':'neg'}" style="white-space:nowrap">${diff>=0?'＋':'－'}¥${Math.abs(diff).toLocaleString()}</td>`;
+    tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}"><td style="white-space:nowrap">${m}月</td><td class="num" style="white-space:nowrap">¥${d.bank.toLocaleString()}</td><td class="num" style="white-space:nowrap">¥${d.sec.toLocaleString()}</td><td class="num" style="white-space:nowrap">¥${d.cash.toLocaleString()}</td><td class="num" style="white-space:nowrap">¥${total.toLocaleString()}</td>${diffHtml}</tr>`;
   });
 }
 
@@ -1218,7 +1218,7 @@ function renderCashTrend() {
     const isCur = m === currentMonth;
     const diffHtml = diff === null ? '<td class="num" style="color:var(--text3)">—</td>'
       : `<td class="num ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '＋' : '－'}¥${Math.abs(diff).toLocaleString()}</td>`;
-    tbody.innerHTML += `<tr style="${isCur ? 'font-weight:700;' : ''}"><td>${m}月</td><td class="num">¥${safe.toLocaleString()}</td>${diffHtml}</tr>`;
+    tbody.innerHTML += `<tr style="${isCur ? 'font-weight:700;' : ''}"><td style="white-space:nowrap">${m}月</td><td class="num" style="white-space:nowrap">¥${safe.toLocaleString()}</td>${diffHtml}</tr>`;
   });
 }
 
@@ -1619,17 +1619,19 @@ window.addEventListener('load', async () => {
       const trendYear= parseInt(document.getElementById('trend-year').value);
       const yearMonth= `${year}/${String(month).padStart(2,'0')}`;
       let d = await callGAS('getInitialData', { year, month, yearMonth });
-      // GAS未更新の場合は個別リクエストにフォールバック
+      // GAS未更新の場合は個別リクエストにフォールバック（前年データも同時取得）
       if (!d?.ok) {
-        const [summary, prevSummary, trend, secRate, latestAsset, cats] = await Promise.all([
+        const [summary, prevSummary, trend, prevTrend, secRate, latestAsset, cats] = await Promise.all([
           callGAS('getSummary', { year, month }),
           callGAS('getSummary', { year: month===1?year-1:year, month: month===1?12:month-1 }),
           callGAS('getAssetTrend', { year: trendYear }),
+          callGAS('getAssetTrend', { year: trendYear - 1 }),
           callGAS('getSecRate', { year: trendYear }),
           callGAS('getLatestAsset', { yearMonth }),
           callGAS('getCategories'),
         ]);
-        d = { ok: true, summary, prevSummary, trend, secRate, latestAsset, categories: cats };
+        const prevTrendWrapped = prevTrend?.ok ? { ok: true, year: trendYear - 1, data: prevTrend.data } : null;
+        d = { ok: true, summary, prevSummary, trend, prevTrend: prevTrendWrapped, secRate, latestAsset, categories: cats };
       }
       if (!d?.ok) return;
 
