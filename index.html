@@ -321,7 +321,7 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
       <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--accent)"></div>現金</div>
     </div>
     <table class="asset-table">
-      <thead><tr><th>月</th><th style="text-align:right">銀行</th><th style="text-align:right">証券</th><th style="text-align:right">現金</th><th style="text-align:right">合計</th></tr></thead>
+      <thead><tr><th>月</th><th style="text-align:right">合計</th><th style="text-align:right">前月比</th><th style="text-align:right">銀行</th><th style="text-align:right">証券</th><th style="text-align:right">現金</th></tr></thead>
       <tbody id="trend-tbody"></tbody>
     </table>
   </div>
@@ -333,10 +333,7 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
       <select class="period-select" style="font-size:11px;padding:4px 10px" id="cash-trend-year" onchange="onCashTrendYearChange()">
       </select>
     </div>
-    <div style="position:relative;height:100px" id="cash-trend-wrap">
-      <div id="cash-trend-chart" style="display:flex;align-items:flex-end;gap:4px;height:84px;padding:0 2px"></div>
-    </div>
-    <div style="display:flex;margin-top:4px" id="cash-trend-labels"></div>
+    <div id="cash-trend-chart" style="display:flex;align-items:flex-end;gap:2px;padding:0 2px"></div>
     <table class="asset-table" style="margin-top:14px">
       <thead><tr><th>月</th><th style="text-align:right">純資産</th><th style="text-align:right">前月比</th></tr></thead>
       <tbody id="cash-trend-tbody"></tbody>
@@ -1085,26 +1082,60 @@ function renderTrend(){
     return;
   }
   const totals=months.map(m=>data[m].bank+data[m].sec+data[m].cash);
-  const maxTotal=Math.max(...totals);
+  const maxTotal=Math.max(...totals,1);
+  const minTotal=Math.min(...totals);
+  const range=maxTotal-minTotal||1;
+  const barMaxH=84;
   const now=new Date();
   const currentMonth=(year===now.getFullYear())?now.getMonth()+1:null;
+
+  // グラフ部分
+  const chartDiv = document.createElement('div');
+  chartDiv.style.cssText='display:flex;align-items:flex-end;gap:2px;padding:0 2px';
+  const labelsDiv = document.createElement('div');
+  labelsDiv.style.cssText='display:flex;margin-top:2px';
   area.innerHTML='';
-  months.forEach(m=>{
-    const d=data[m];const total=d.bank+d.sec+d.cash;
-    const ratio=maxTotal>0?total/maxTotal:0;
-    const bankH=Math.round((d.bank/total)*82*ratio);
-    const secH=Math.round((d.sec/total)*82*ratio);
-    const cashH=Math.max(2,Math.round((d.cash/total)*82*ratio));
-    const isCur=m===currentMonth;const op=isCur?1:0.5;
-    const col=document.createElement('div');col.className='trend-col';
-    col.innerHTML=`<div class="trend-total-label">¥${Math.round(total/10000)}万</div><div class="trend-stack"><div class="trend-seg" style="height:${bankH}px;background:var(--blue);border-radius:3px 3px 0 0;opacity:${op}"></div><div class="trend-seg" style="height:${secH}px;background:var(--purple);opacity:${op}"></div><div class="trend-seg" style="height:${cashH}px;background:var(--accent);opacity:${op}"></div></div><div class="trend-month-label ${isCur?'current':''}">${m}月</div>`;
-    area.appendChild(col);
-  });
-  tbody.innerHTML='';
-  months.forEach(m=>{
-    const d=data[m];const total=d.bank+d.sec+d.cash;
+  area.style.cssText='';
+  area.appendChild(chartDiv);
+  area.appendChild(labelsDiv);
+
+  months.forEach((m,idx)=>{
+    const d=data[m];
+    const total=d.bank+d.sec+d.cash;
+    const prevTotal=idx>0?totals[idx-1]:null;
+    const diff=prevTotal!==null?total-prevTotal:null;
+    const barH=Math.max(4,Math.round((total-minTotal)/range*(barMaxH-16)+8));
     const isCur=m===currentMonth;
-    tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}""><td>${m}月</td><td class="num">¥${d.bank.toLocaleString()}</td><td class="num">¥${d.sec.toLocaleString()}</td><td class="num">¥${d.cash.toLocaleString()}</td><td class="num" style="color:var(--blue)">¥${total.toLocaleString()}</td></tr>`;
+    const diffColor=diff===null?'var(--text3)':diff>=0?'var(--mint)':'var(--red)';
+    const diffStr=diff===null?'':(diff>=0?'+':'')+Math.round(diff/10000)+'万';
+
+    const col=document.createElement('div');
+    col.style.cssText=`flex:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${barMaxH+20}px`;
+    col.innerHTML=
+      `<div style="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);margin-bottom:2px;white-space:nowrap">¥${Math.round(total/10000)}万</div>`+
+      `<div style="width:70%;height:${barH}px;border-radius:3px 3px 0 0;opacity:${isCur?1:0.55};position:relative;overflow:hidden">`+
+        `<div style="position:absolute;bottom:0;left:0;right:0;height:${Math.round(d.cash/total*barH)}px;background:var(--accent)"></div>`+
+        `<div style="position:absolute;bottom:${Math.round(d.cash/total*barH)}px;left:0;right:0;height:${Math.round(d.sec/total*barH)}px;background:var(--purple)"></div>`+
+        `<div style="position:absolute;top:0;left:0;right:0;height:${Math.round(d.bank/total*barH)}px;background:var(--blue)"></div>`+
+      `</div>`+
+      (diffStr?`<div style="position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${diffColor};white-space:nowrap">${diffStr}</div>`:'');
+    chartDiv.appendChild(col);
+
+    const lbl=document.createElement('div');
+    lbl.style.cssText=`flex:1;text-align:center;font-size:9px;font-family:'DM Mono',monospace;color:${isCur?'var(--accent)':'var(--text3)'};font-weight:${isCur?700:400};margin-top:2px`;
+    lbl.textContent=`${m}月`;
+    labelsDiv.appendChild(lbl);
+  });
+
+  tbody.innerHTML='';
+  months.forEach((m,idx)=>{
+    const d=data[m];const total=d.bank+d.sec+d.cash;
+    const prev=idx>0?totals[idx-1]:null;
+    const diff=prev!==null?total-prev:null;
+    const isCur=m===currentMonth;
+    const diffHtml=diff===null?'<td class="num" style="color:var(--text3)">—</td>'
+      :`<td class="num ${diff>=0?'pos':'neg'}">${diff>=0?'＋':'－'}¥${Math.abs(diff).toLocaleString()}</td>`;
+    tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}"><td>${m}月</td><td class="num">¥${total.toLocaleString()}</td>${diffHtml}<td class="num">¥${d.bank.toLocaleString()}</td><td class="num">¥${d.sec.toLocaleString()}</td><td class="num">¥${d.cash.toLocaleString()}</td></tr>`;
   });
 }
 
@@ -1114,59 +1145,65 @@ function renderCashTrend() {
   const data = assetData[year] || {};
   const months = Object.keys(data).map(Number).sort((a, b) => a - b);
   const chart = document.getElementById('cash-trend-chart');
-  const labels = document.getElementById('cash-trend-labels');
   const tbody = document.getElementById('cash-trend-tbody');
 
   if (!months.length) {
     chart.innerHTML = '<div style="width:100%;text-align:center;padding:24px 0;color:var(--text3);font-size:12px">' + year + '年のデータがありません</div>';
-    if (labels) labels.innerHTML = '';
     if (tbody) tbody.innerHTML = '';
     return;
   }
 
+  // 全年データから直前月の値を探す（年をまたいで対応）
+  function findPrevSafe(monthIdx) {
+    if (monthIdx > 0) return safeValues[monthIdx - 1];
+    const prevData = assetData[year - 1] || {};
+    for (let pm = 12; pm >= 1; pm--) {
+      if (prevData[pm] !== undefined) return prevData[pm].safe || (prevData[pm].bank + prevData[pm].cash);
+    }
+    return null;
+  }
+
   const safeValues = months.map(m => data[m].safe || (data[m].bank + data[m].cash));
+  const diffs = months.map((m, idx) => {
+    const prev = findPrevSafe(idx);
+    return prev !== null ? safeValues[idx] - prev : null;
+  });
+
   const maxSafe = Math.max(...safeValues, 1);
   const minSafe = Math.min(...safeValues);
   const range = maxSafe - minSafe || 1;
-  const barMaxH = 84;
+  const barMaxH = 56;
   const now = new Date();
   const currentMonth = (year === now.getFullYear()) ? now.getMonth() + 1 : null;
 
   chart.innerHTML = '';
-  labels.innerHTML = '';
 
   months.forEach((m, idx) => {
     const safe = safeValues[idx];
-    const prev = idx > 0 ? safeValues[idx - 1] : null;
-    const diff = prev !== null ? safe - prev : null;
-    const barH = Math.max(4, Math.round((safe - minSafe) / range * (barMaxH - 16) + 8));
+    const diff = diffs[idx];
+    const barH = Math.max(4, Math.round((safe - minSafe) / range * (barMaxH - 8) + 8));
     const isCur = m === currentMonth;
     const diffColor = diff === null ? 'var(--text3)' : diff >= 0 ? 'var(--mint)' : 'var(--red)';
-    const diffStr = diff === null ? '' : (diff >= 0 ? '+' : '') + Math.round(diff / 10000) + '万';
+    const diffStr = diff === null ? '—' : (diff >= 0 ? '＋' : '－') + '¥' + Math.round(Math.abs(diff) / 10000) + '万';
 
     const col = document.createElement('div');
-    col.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:' + barMaxH + 'px;position:relative';
+    col.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding-bottom:2px';
     col.innerHTML =
-      `<div style="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);margin-bottom:2px;white-space:nowrap">¥${Math.round(safe / 10000)}万</div>` +
+      `<div style="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;text-align:center">¥${Math.round(safe / 10000)}万</div>` +
       `<div style="width:70%;height:${barH}px;background:var(--accent);border-radius:3px 3px 0 0;opacity:${isCur ? 1 : 0.55}"></div>` +
-      (diffStr ? `<div style="position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${diffColor};white-space:nowrap">${diffStr}</div>` : '');
+      `<div style="font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${diffColor};white-space:nowrap;text-align:center">${diffStr}</div>` +
+      `<div style="font-size:9px;font-family:'DM Mono',monospace;color:${isCur ? 'var(--accent)' : 'var(--text3)'};font-weight:${isCur ? 700 : 400}">${m}月</div>`;
     chart.appendChild(col);
-
-    const lbl = document.createElement('div');
-    lbl.style.cssText = `flex:1;text-align:center;font-size:9px;font-family:'DM Mono',monospace;color:${isCur ? 'var(--accent)' : 'var(--text3)'};font-weight:${isCur ? 700 : 400};margin-top:2px`;
-    lbl.textContent = m + '月';
-    labels.appendChild(lbl);
   });
 
   tbody.innerHTML = '';
   months.forEach((m, idx) => {
     const safe = safeValues[idx];
-    const prev = idx > 0 ? safeValues[idx - 1] : null;
-    const diff = prev !== null ? safe - prev : null;
+    const diff = diffs[idx];
     const isCur = m === currentMonth;
     const diffHtml = diff === null ? '<td class="num" style="color:var(--text3)">—</td>'
-      : '<td class="num ' + (diff >= 0 ? 'pos' : 'neg') + '">' + (diff >= 0 ? '＋' : '－') + '¥' + Math.abs(diff).toLocaleString() + '</td>';
-    tbody.innerHTML += '<tr style="' + (isCur ? 'font-weight:700;' : '') + '"><td>' + m + '月</td><td class="num">¥' + safe.toLocaleString() + '</td>' + diffHtml + '</tr>';
+      : `<td class="num ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '＋' : '－'}¥${Math.abs(diff).toLocaleString()}</td>`;
+    tbody.innerHTML += `<tr style="${isCur ? 'font-weight:700;' : ''}"><td>${m}月</td><td class="num">¥${safe.toLocaleString()}</td>${diffHtml}</tr>`;
   });
 }
 
@@ -1180,16 +1217,34 @@ async function onCashTrendYearChange() {
 
 async function onCashTrendYearChange() {
   const year = parseInt(document.getElementById('cash-trend-year').value);
-  // assetDataに該当年がなければGASから取得（trend-yearと共有データ）
-  if (GAS_URL && (!assetData[year] || Object.keys(assetData[year]).length === 0)) {
-    const data = await callGAS('getAssetTrend', { year });
-    if (data?.ok && data.data.length) {
-      assetData[year] = {};
-      data.data.forEach(d => {
-        const m = parseInt(d.yearMonth.split('/')[1]);
-        assetData[year][m] = { bank: d.bank, sec: d.sec, cash: d.cash, safe: d.safe || (d.bank + d.cash) };
-      });
+  if (GAS_URL) {
+    const fetches = [];
+    // 当年データ取得
+    if (!assetData[year] || Object.keys(assetData[year]).length === 0) {
+      fetches.push(callGAS('getAssetTrend', { year }).then(data => {
+        if (data?.ok && data.data.length) {
+          assetData[year] = {};
+          data.data.forEach(d => {
+            const m = parseInt(d.yearMonth.split('/')[1]);
+            assetData[year][m] = { bank: d.bank, sec: d.sec, cash: d.cash, safe: d.safe || (d.bank + d.cash) };
+          });
+        }
+      }));
     }
+    // 前年データも取得（1月の前月比表示のため）
+    const prevYear = year - 1;
+    if (!assetData[prevYear] || Object.keys(assetData[prevYear]).length === 0) {
+      fetches.push(callGAS('getAssetTrend', { year: prevYear }).then(data => {
+        if (data?.ok && data.data.length) {
+          assetData[prevYear] = {};
+          data.data.forEach(d => {
+            const m = parseInt(d.yearMonth.split('/')[1]);
+            assetData[prevYear][m] = { bank: d.bank, sec: d.sec, cash: d.cash, safe: d.safe || (d.bank + d.cash) };
+          });
+        }
+      }));
+    }
+    if (fetches.length) await Promise.all(fetches);
   }
   renderCashTrend();
 }
@@ -1501,6 +1556,31 @@ function applyCache() {
     if (cache.keywordRules?.ok && Array.isArray(cache.keywordRules.rules) && cache.keywordRules.rules.length) {
       keywordRules = cache.keywordRules.rules;
     }
+    // 純資産推移（assetDataに展開）
+    if (cache.trend?.ok && cache.trend.data?.length) {
+      const trendYear = new Date().getFullYear();
+      if (!assetData[trendYear] || !Object.keys(assetData[trendYear]).length) {
+        assetData[trendYear] = {};
+        cache.trend.data.forEach(r => {
+          const m = parseInt(r.yearMonth.split('/')[1]);
+          assetData[trendYear][m] = { bank: r.bank, sec: r.sec, cash: r.cash, safe: r.safe || (r.bank + r.cash) };
+        });
+        renderCashTrend();
+      }
+    }
+    // 純資産推移（assetDataはtrendと共有）
+    if (cache.trend?.ok && cache.trend.data?.length) {
+      const trendYear = parseInt(document.getElementById('trend-year').value);
+      if (!assetData[trendYear]) {
+        assetData[trendYear] = {};
+        cache.trend.data.forEach(r => {
+          const m = parseInt(r.yearMonth.split('/')[1]);
+          assetData[trendYear][m] = { bank: r.bank, sec: r.sec, cash: r.cash, safe: r.safe || (r.bank + r.cash) };
+        });
+        renderCashTrend();
+      }
+    }
+    // 純資産推移は assetData から自動描画されるため別途キャッシュ不要
     // 明細キャッシュ
     if (cache.details?.ok && cache.cachedAt) {
       const now = new Date();
