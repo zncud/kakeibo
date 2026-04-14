@@ -1389,6 +1389,10 @@ function applyCache() {
       categories = cache.categories.categories;
       renderCategories();
     }
+    // キーワードルール
+    if (cache.keywordRules?.ok && Array.isArray(cache.keywordRules.rules) && cache.keywordRules.rules.length) {
+      keywordRules = cache.keywordRules.rules;
+    }
   } catch(e) {}
 }
 
@@ -1423,6 +1427,11 @@ window.addEventListener('load', async () => {
         categories = d.categories.categories;
         renderCategories();
       }
+      // キーワードルール
+      if (d.keywordRules?.ok && Array.isArray(d.keywordRules.rules) && d.keywordRules.rules.length) {
+        keywordRules = d.keywordRules.rules;
+        saveKeywordRules();
+      }
       // サマリー
       applySummaryData(d.summary, d.prevSummary);
       // 資産推移
@@ -1455,6 +1464,7 @@ window.addEventListener('load', async () => {
         secRate: d.secRate,
         latestAsset: d.latestAsset,
         categories: d.categories,
+        keywordRules: d.keywordRules,
         cachedAt: Date.now(),
       }));
 
@@ -1494,6 +1504,19 @@ if (!keywordRules.length) {
 }
 function saveKeywordRules() {
   localStorage.setItem('keyword_rules', JSON.stringify(keywordRules));
+}
+
+// GASのキーワードルールと同期
+async function syncKeywordRules() {
+  if (!GAS_URL) return;
+  const data = await callGAS('getKeywordRules');
+  if (data?.ok && Array.isArray(data.rules) && data.rules.length) {
+    keywordRules = data.rules;
+    saveKeywordRules();
+  } else if (keywordRules.length) {
+    // ローカルにあればGASにアップロード
+    await callGAS('saveKeywordRules', { rules: keywordRules });
+  }
 }
 
 // 店名からカテゴリを推測
@@ -1749,7 +1772,7 @@ function renderKeywordModal() {
     </div>
   `);
 }
-function addKeywordRule() {
+async function addKeywordRule() {
   const kw  = document.getElementById('new-keyword')?.value.trim();
   const cat = document.getElementById('new-keyword-cat')?.value;
   if (!kw || !cat) return;
@@ -1757,11 +1780,13 @@ function addKeywordRule() {
   saveKeywordRules();
   renderKeywordModal();
   showToast(`「${kw}」ルールを追加しました`);
+  if (GAS_URL) await callGAS('saveKeywordRules', { rules: keywordRules });
 }
-function deleteKeywordRule(i) {
+async function deleteKeywordRule(i) {
   keywordRules.splice(i, 1);
   saveKeywordRules();
   renderKeywordModal();
+  if (GAS_URL) await callGAS('saveKeywordRules', { rules: keywordRules });
 }
 
 
