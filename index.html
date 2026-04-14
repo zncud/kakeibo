@@ -182,6 +182,13 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
 .rate-value.neg{color:var(--red)}
 
 /* 資産推移 */
+.chart-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}
+.chart-bars{display:flex;align-items:flex-end;gap:2px;min-width:max-content}
+.chart-col{display:flex;flex-direction:column;align-items:center;width:clamp(36px,10vw,72px)}
+.chart-diff{font-size:8px;font-family:'DM Mono',monospace;font-weight:700;white-space:nowrap;height:14px;display:flex;align-items:center;justify-content:center}
+.chart-amt{font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;text-align:center;margin-bottom:2px}
+.chart-bar{width:70%;border-radius:3px 3px 0 0;position:relative;overflow:hidden}
+.chart-lbl{font-size:9px;font-family:'DM Mono',monospace;margin-top:4px;white-space:nowrap}
 .trend-area{display:flex;align-items:flex-end;gap:4px;height:100px;padding:0 2px;margin-bottom:4px}
 .trend-col{flex:1;display:flex;flex-direction:column;align-items:center}
 .trend-stack{width:100%;display:flex;flex-direction:column;justify-content:flex-end;height:84px;gap:1px}
@@ -302,23 +309,22 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
     <div class="list-item"><div class="list-left"><div class="list-dot" style="background:var(--blue)"></div><div><div class="list-name">楽天銀行（出金）</div><div class="list-sub">CSV取込</div></div></div><div class="list-amount" id="sum-bank">¥0</div></div>
   </div>
 
-  <div class="card">
-    <div class="card-label">カテゴリ別</div>
-    <div id="sum-category-bars"><div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">データを取り込むとここに表示されます</div></div>
-  </div>
   <!-- グラフ共通年セレクタ -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;margin-top:8px">
     <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">グラフ表示年</div>
     <select class="period-select" style="font-size:12px;padding:6px 14px" id="graph-year" onchange="onGraphYearChange()">
     </select>
   </div>
-  
+
+  <div class="card">
+    <div class="card-label">カテゴリ別</div>
+    <div id="sum-category-bars"><div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">データを取り込むとここに表示されます</div></div>
+  </div>
+
   <!-- 資産推移 -->
   <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div class="card-label" style="margin-bottom:0">資産推移（合計）</div>
-    </div>
-    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><div class="trend-area" id="trend-area" style="min-width:max-content;padding-bottom:4px"></div></div>
+    <div class="card-label">資産推移（合計）</div>
+    <div class="chart-scroll"><div class="chart-bars" id="trend-bars"></div></div>
     <div class="trend-legend">
       <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--blue)"></div>純資産</div>
       <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--purple)"></div>証券</div>
@@ -329,27 +335,21 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
     </table>
   </div>
 
-  <!-- 現金推移 -->
+  <!-- 純資産推移 -->
   <div class="card" style="border-color:#fdd8c8">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div class="card-label" style="margin-bottom:0">🏦 純資産推移</div>
-    </div>
-    <div id="cash-trend-chart" style="display:flex;align-items:flex-end;gap:2px;padding:0 2px"></div>
+    <div class="card-label">🏦 純資産推移</div>
+    <div class="chart-scroll"><div class="chart-bars" id="cash-bars"></div></div>
     <table class="asset-table" style="margin-top:14px">
       <thead><tr><th>月</th><th style="text-align:right">純資産</th><th style="text-align:right">前月比</th></tr></thead>
-      <tbody id="cash-trend-tbody"></tbody>
+      <tbody id="cash-tbody"></tbody>
     </table>
   </div>
 
   <!-- 証券利益率推移 -->
   <div class="card" style="border-color:#e8dcf8">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div class="card-label" style="margin-bottom:0">📈 証券利益率の推移</div>
-    </div>
-    <div style="font-size:10px;color:var(--text3);margin-bottom:14px">損益 ÷ 累計入金額 × 100</div>
-    <div class="rate-chart">
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><div style="position:relative;min-width:max-content" id="rate-chart-wrap"><div class="rate-bars" id="rate-bars" style="min-width:max-content"></div></div><div style="display:flex;min-width:max-content;margin-top:4px" id="rate-labels"></div></div>
-    </div>
+    <div class="card-label">📈 証券利益率の推移</div>
+    <div style="font-size:10px;color:var(--text3);margin-bottom:10px">損益 ÷ 累計入金額 × 100</div>
+    <div class="chart-scroll"><div class="chart-bars" id="rate-bars"></div></div>
     <table class="asset-table" style="margin-top:14px">
       <thead><tr><th>月</th><th style="text-align:right">証券評価額</th><th style="text-align:right">累計損益</th><th style="text-align:right">利益率</th></tr></thead>
       <tbody id="rate-tbody"></tbody>
@@ -1106,249 +1106,178 @@ function loadAssetDataFromLocal() {
 // 証券損益データ（累計入金額・累計損益）
 const secData = {};
 
-function renderTrend(){
-  const year=parseInt(document.getElementById('graph-year').value);
-  const data=assetData[year]||{};
-  const months=Object.keys(data).map(Number).sort((a,b)=>a-b);
-  const area=document.getElementById('trend-area');
-  const tbody=document.getElementById('trend-tbody');
-  if(!months.length){
-    area.innerHTML='<div style="width:100%;text-align:center;padding:24px 0;color:var(--text3);font-size:12px">'+year+'年のデータがありません<br><span style="font-size:10px;font-family:\'DM Mono\',monospace">資産照合で残高を登録すると表示されます</span></div>';
-    if(tbody)tbody.innerHTML='';
-    return;
-  }
-  const totals=months.map(m=>data[m].bank+data[m].sec+data[m].cash);
-  const maxTotal=Math.max(...totals,1);
-  const minTotal=Math.min(...totals);
-  const range=maxTotal-minTotal||1;
-  // 前年最終月の合計を取得（初月の前月比計算用）
-  const prevYearData=assetData[year-1]||{};
-  const prevYearLastTotal=(()=>{
-    for(let pm=12;pm>=1;pm--){
-      if(prevYearData[pm]!==undefined){
-        const d=prevYearData[pm];
-        return d.bank+d.sec+d.cash;
-      }
-    }
-    return null;
-  })();
-  const barMaxH=84;
-  const now=new Date();
-  const currentMonth=(year===now.getFullYear())?now.getMonth()+1:null;
-
-  area.innerHTML='';
-  area.style.cssText='display:flex;gap:2px;padding:0 2px;margin-bottom:4px';
-
-  months.forEach((m,idx)=>{
-    const d=data[m];
-    const total=d.bank+d.sec+d.cash;
-    const prevTotal=idx>0?totals[idx-1]:(prevYearLastTotal);
-    const diff=prevTotal!==null?total-prevTotal:null;
-    const barH=Math.max(4,Math.round((total-minTotal)/range*(barMaxH-16)+8));
-    const isCur=m===currentMonth;
-    const diffColor=diff===null?'var(--text3)':diff>=0?'var(--mint)':'var(--red)';
-    const diffStr=diff===null?'':(diff>=0?'+':'')+Math.round(diff/10000)+'万';
-
-    const col=document.createElement('div');
-    col.style.cssText='flex:0 0 auto;width:clamp(40px,calc(100%/'+months.length+'),80px);display:flex;flex-direction:column;align-items:center';
-    // 前月比（最上部）
-    const diffEl=document.createElement('div');
-    diffEl.style.cssText=`font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${diffColor};white-space:nowrap;height:14px;display:flex;align-items:center;justify-content:center`;
-    diffEl.textContent=diffStr;
-    // 金額
-    const amtEl=document.createElement('div');
-    amtEl.style.cssText="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);margin-bottom:2px;white-space:nowrap;text-align:center";
-    amtEl.textContent=`¥${Math.round(total/10000)}万`;
-    // 積み上げ棒
-    const barEl=document.createElement('div');
-    barEl.style.cssText=`width:70%;height:${barH}px;border-radius:3px 3px 0 0;opacity:${isCur?1:0.55};position:relative;overflow:hidden`;
-    const safeH=Math.round((d.bank+d.cash)/total*barH);
-    barEl.innerHTML=
-      `<div style="position:absolute;bottom:0;left:0;right:0;height:${safeH}px;background:var(--blue)"></div>`+
-      `<div style="position:absolute;top:0;left:0;right:0;height:${barH-safeH}px;background:var(--purple)"></div>`;
-    // 月ラベル（最下部）
-    const lblEl=document.createElement('div');
-    lblEl.style.cssText=`font-size:9px;font-family:'DM Mono',monospace;color:${isCur?'var(--accent)':'var(--text3)'};font-weight:${isCur?700:400};margin-top:4px`;
-    lblEl.textContent=`${m}月`;
-
-    col.appendChild(diffEl);
-    col.appendChild(barEl);
-    col.appendChild(amtEl);
-    col.appendChild(lblEl);
-    area.appendChild(col);
-  });
-
-  tbody.innerHTML='';
-  months.forEach((m,idx)=>{
-    const d=data[m];const total=d.bank+d.sec+d.cash;
-    const prevTotal=idx>0?totals[idx-1]:prevYearLastTotal;
-    const diff=prevTotal!==null?total-prevTotal:null;
-    const isCur=m===currentMonth;
-    const diffHtml=diff===null?'<td class="num" style="color:var(--text3);white-space:nowrap">—</td>'
-      :`<td class="num ${diff>=0?'pos':'neg'}" style="white-space:nowrap">${diff>=0?'＋':'－'}¥${Math.abs(diff).toLocaleString()}</td>`;
-    tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}"><td style="white-space:nowrap">${m}月</td><td class="num">¥${total.toLocaleString()}</td>${diffHtml}</tr>`;
-  });
-}
-
-// ── 現金推移グラフ ──
-function renderCashTrend() {
-  const year = parseInt(document.getElementById('graph-year').value);
-  const data = assetData[year] || {};
-  const months = Object.keys(data).map(Number).sort((a, b) => a - b);
-  const chart = document.getElementById('cash-trend-chart');
-  const tbody = document.getElementById('cash-trend-tbody');
+// ── 共通グラフ描画関数 ──
+function renderBarChart({ barsId, tbodyId, months, values, year, getDiff, getBarContent, tableRowFn }) {
+  const barsEl = document.getElementById(barsId);
+  const tbody  = tbodyId ? document.getElementById(tbodyId) : null;
+  if (!barsEl) return;
+  const now = new Date();
+  const curM = (year === now.getFullYear()) ? now.getMonth() + 1 : null;
 
   if (!months.length) {
-    chart.innerHTML = '<div style="width:100%;text-align:center;padding:24px 0;color:var(--text3);font-size:12px">' + year + '年のデータがありません</div>';
+    barsEl.innerHTML = `<div style="padding:24px 8px;color:var(--text3);font-size:12px;text-align:center;min-width:160px">${year}年のデータがありません</div>`;
     if (tbody) tbody.innerHTML = '';
     return;
   }
 
-  // 全年データから直前月の値を探す（年をまたいで対応）
-  function findPrevSafe(monthIdx) {
-    if (monthIdx > 0) return safeValues[monthIdx - 1];
-    const prevData = assetData[year - 1] || {};
-    for (let pm = 12; pm >= 1; pm--) {
-      if (prevData[pm] !== undefined) return prevData[pm].safe || (prevData[pm].bank + prevData[pm].cash);
-    }
-    return null;
-  }
+  const maxV = Math.max(...values, 1);
+  const minV = Math.min(...values);
+  const range = maxV - minV || 1;
+  const BAR_H = 80;
 
-  const safeValues = months.map(m => data[m].safe || (data[m].bank + data[m].cash));
-  const diffs = months.map((m, idx) => {
-    const prev = findPrevSafe(idx);
-    return prev !== null ? safeValues[idx] - prev : null;
-  });
-
-  const maxSafe = Math.max(...safeValues, 1);
-  const minSafe = Math.min(...safeValues);
-  const range = maxSafe - minSafe || 1;
-  const barMaxH = 56;
-  const now = new Date();
-  const currentMonth = (year === now.getFullYear()) ? now.getMonth() + 1 : null;
-
-  chart.innerHTML = '';
-
+  barsEl.innerHTML = '';
   months.forEach((m, idx) => {
-    const safe = safeValues[idx];
-    const diff = diffs[idx];
-    const barH = Math.max(4, Math.round((safe - minSafe) / range * (barMaxH - 8) + 8));
-    const isCur = m === currentMonth;
-    const diffColor = diff === null ? 'var(--text3)' : diff >= 0 ? 'var(--mint)' : 'var(--red)';
-    const diffStr = diff === null ? '—' : (diff >= 0 ? '＋' : '－') + '¥' + Math.round(Math.abs(diff) / 10000) + '万';
+    const val  = values[idx];
+    const diff = getDiff(idx, val);
+    const barH = Math.max(4, Math.round((val - minV) / range * (BAR_H - 16) + 8));
+    const isCur = m === curM;
+    const diffColor = diff === null ? 'transparent' : diff >= 0 ? 'var(--mint)' : 'var(--red)';
+    const diffStr   = diff === null ? '' : (diff >= 0 ? '+' : '') + Math.round(Math.abs(diff) / 10000) + '万';
 
     const col = document.createElement('div');
-    col.style.cssText = 'flex:0 0 auto;width:clamp(40px,calc(100%/'+months.length+'),80px);display:flex;flex-direction:column;align-items:center;gap:2px;padding-bottom:2px';
-    col.innerHTML =
-      `<div style="font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${diffColor};white-space:nowrap;text-align:center;height:14px;display:flex;align-items:center;justify-content:center">${diffStr}</div>` +
-      `<div style="width:70%;height:${barH}px;background:var(--accent);border-radius:3px 3px 0 0;opacity:${isCur ? 1 : 0.55}"></div>` +
-      `<div style="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;text-align:center;margin-top:2px">¥${Math.round(safe / 10000)}万</div>` +
-      `<div style="font-size:9px;font-family:'DM Mono',monospace;color:${isCur ? 'var(--accent)' : 'var(--text3)'};font-weight:${isCur ? 700 : 400};margin-top:2px">${m}月</div>`;
-    chart.appendChild(col);
+    col.className = 'chart-col';
+
+    const diffEl = document.createElement('div');
+    diffEl.className = 'chart-diff';
+    diffEl.style.color = diffColor;
+    diffEl.textContent = diffStr;
+
+    const barWrap = document.createElement('div');
+    barWrap.className = 'chart-bar';
+    barWrap.style.cssText = `height:${barH}px;opacity:${isCur ? 1 : 0.55}`;
+    barWrap.innerHTML = getBarContent(idx, val, barH);
+
+    const amtEl = document.createElement('div');
+    amtEl.className = 'chart-amt';
+    amtEl.textContent = '¥' + Math.round(val / 10000) + '万';
+
+    const lblEl = document.createElement('div');
+    lblEl.className = 'chart-lbl';
+    lblEl.style.color = isCur ? 'var(--accent)' : 'var(--text3)';
+    lblEl.style.fontWeight = isCur ? 700 : 400;
+    lblEl.textContent = m + '月';
+
+    col.appendChild(diffEl);
+    col.appendChild(barWrap);
+    col.appendChild(amtEl);
+    col.appendChild(lblEl);
+    barsEl.appendChild(col);
   });
 
-  tbody.innerHTML = '';
-  months.forEach((m, idx) => {
-    const safe = safeValues[idx];
-    const diff = diffs[idx];
-    const isCur = m === currentMonth;
-    const diffHtml = diff === null ? '<td class="num" style="color:var(--text3)">—</td>'
-      : `<td class="num ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '＋' : '－'}¥${Math.abs(diff).toLocaleString()}</td>`;
-    tbody.innerHTML += `<tr style="${isCur ? 'font-weight:700;' : ''}"><td style="white-space:nowrap">${m}月</td><td class="num" style="white-space:nowrap">¥${safe.toLocaleString()}</td>${diffHtml}</tr>`;
+  if (tbody) {
+    tbody.innerHTML = '';
+    months.forEach((m, idx) => { tbody.innerHTML += tableRowFn(m, idx, m === curM); });
+  }
+}
+
+function getPrevYearLast(year, getter) {
+  const d = assetData[year - 1] || {};
+  for (let pm = 12; pm >= 1; pm--) {
+    if (d[pm] !== undefined) return getter(d[pm]);
+  }
+  return null;
+}
+
+// ── 資産推移（合計）──
+function renderTrend() {
+  const year   = parseInt(document.getElementById('graph-year').value);
+  const data   = assetData[year] || {};
+  const months = Object.keys(data).map(Number).sort((a, b) => a - b);
+  const totals = months.map(m => data[m].bank + data[m].sec + data[m].cash);
+  const prevLast = getPrevYearLast(year, d => d.bank + d.sec + d.cash);
+
+  renderBarChart({
+    barsId: 'trend-bars', tbodyId: 'trend-tbody', months, values: totals, year,
+    getDiff: (idx, val) => {
+      const prev = idx > 0 ? totals[idx - 1] : prevLast;
+      return prev !== null ? val - prev : null;
+    },
+    getBarContent: (idx, val, barH) => {
+      const d = data[months[idx]];
+      const safeH = Math.round((d.bank + d.cash) / Math.max(val, 1) * barH);
+      return `<div style="position:absolute;bottom:0;left:0;right:0;height:${safeH}px;background:var(--blue)"></div>`
+           + `<div style="position:absolute;top:0;left:0;right:0;height:${barH - safeH}px;background:var(--purple)"></div>`;
+    },
+    tableRowFn: (m, idx, isCur) => {
+      const total = totals[idx];
+      const prev  = idx > 0 ? totals[idx - 1] : prevLast;
+      const diff  = prev !== null ? total - prev : null;
+      const dHtml = diff === null
+        ? '<td class="num" style="color:var(--text3)">—</td>'
+        : `<td class="num ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '＋' : '－'}¥${Math.abs(diff).toLocaleString()}</td>`;
+      return `<tr style="${isCur ? 'font-weight:700' : ''}"><td>${m}月</td><td class="num">¥${total.toLocaleString()}</td>${dHtml}</tr>`;
+    },
+  });
+}
+
+// ── 純資産推移 ──
+function renderCashTrend() {
+  const year   = parseInt(document.getElementById('graph-year').value);
+  const data   = assetData[year] || {};
+  const months = Object.keys(data).map(Number).sort((a, b) => a - b);
+  const safes  = months.map(m => data[m].safe || (data[m].bank + data[m].cash));
+  const prevLast = getPrevYearLast(year, d => d.safe || (d.bank + d.cash));
+
+  renderBarChart({
+    barsId: 'cash-bars', tbodyId: 'cash-tbody', months, values: safes, year,
+    getDiff: (idx, val) => {
+      const prev = idx > 0 ? safes[idx - 1] : prevLast;
+      return prev !== null ? val - prev : null;
+    },
+    getBarContent: () => `<div style="position:absolute;inset:0;background:var(--accent)"></div>`,
+    tableRowFn: (m, idx, isCur) => {
+      const safe = safes[idx];
+      const prev = idx > 0 ? safes[idx - 1] : prevLast;
+      const diff = prev !== null ? safe - prev : null;
+      const dHtml = diff === null
+        ? '<td class="num" style="color:var(--text3)">—</td>'
+        : `<td class="num ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '＋' : '－'}¥${Math.abs(diff).toLocaleString()}</td>`;
+      return `<tr style="${isCur ? 'font-weight:700' : ''}"><td>${m}月</td><td class="num">¥${safe.toLocaleString()}</td>${dHtml}</tr>`;
+    },
+  });
+}
+
+// ── 証券利益率 ──
+function renderRateChart() {
+  const year   = parseInt(document.getElementById('graph-year').value);
+  const data   = secData[year] || {};
+  const months = Object.keys(data).map(Number).sort((a, b) => a - b);
+  const risks  = months.map(m => data[m].riskTotal || 0);
+  const rates  = months.map(m => data[m].deposit > 0 ? data[m].pnl / data[m].deposit * 100 : 0);
+
+  renderBarChart({
+    barsId: 'rate-bars', tbodyId: 'rate-tbody', months, values: risks, year,
+    getDiff: (idx) => null,
+    getBarContent: (idx) => {
+      const color = rates[idx] >= 0 ? 'var(--mint)' : 'var(--red)';
+      return `<div style="position:absolute;inset:0;background:${color}"></div>`;
+    },
+    tableRowFn: (m, idx, isCur) => {
+      const d = data[m], rate = rates[idx];
+      return `<tr style="${isCur ? 'font-weight:700' : ''}">
+        <td>${m}月</td>
+        <td class="num">¥${(d.riskTotal || 0).toLocaleString()}</td>
+        <td class="num ${rate >= 0 ? 'pos' : 'neg'}">${rate >= 0 ? '＋' : ''}¥${Math.abs(d.pnl).toLocaleString()}</td>
+        <td class="num ${rate >= 0 ? 'pos' : 'neg'}">${rate >= 0 ? '+' : ''}${rate.toFixed(2)}%</td>
+      </tr>`;
+    },
+  });
+  // 証券グラフは前月比部分に利益率を表示
+  const barsEl = document.getElementById('rate-bars');
+  if (!barsEl) return;
+  Array.from(barsEl.children).forEach((col, idx) => {
+    const diffEl = col.querySelector('.chart-diff');
+    if (!diffEl) return;
+    const rate = rates[idx];
+    diffEl.style.color = rate >= 0 ? 'var(--mint)' : 'var(--red)';
+    diffEl.textContent = (rate >= 0 ? '+' : '') + rate.toFixed(1) + '%';
   });
 }
 
 async function onCashTrendYearChange() {
-  const year = parseInt(document.getElementById('graph-year').value);
-  if (GAS_URL) {
-    const fetches = [];
-    // 当年データ取得
-    if (!assetData[year] || Object.keys(assetData[year]).length === 0) {
-      fetches.push(callGAS('getAssetTrend', { year }).then(data => {
-        if (data?.ok && data.data.length) {
-          assetData[year] = {};
-          data.data.forEach(d => {
-            const m = parseInt(d.yearMonth.split('/')[1]);
-            assetData[year][m] = { bank: d.bank, sec: d.sec, cash: d.cash, safe: d.safe || (d.bank + d.cash) };
-          });
-        }
-      }));
-    }
-    // 前年データも取得（1月の前月比表示のため）
-    const prevYear = year - 1;
-    if (!assetData[prevYear] || Object.keys(assetData[prevYear]).length === 0) {
-      fetches.push(callGAS('getAssetTrend', { year: prevYear }).then(data => {
-        if (data?.ok && data.data.length) {
-          assetData[prevYear] = {};
-          data.data.forEach(d => {
-            const m = parseInt(d.yearMonth.split('/')[1]);
-            assetData[prevYear][m] = { bank: d.bank, sec: d.sec, cash: d.cash, safe: d.safe || (d.bank + d.cash) };
-          });
-        }
-      }));
-    }
-    if (fetches.length) await Promise.all(fetches);
-  }
   renderCashTrend();
 }
 
-// ── 証券利益率グラフ ──
-function renderRateChart(){
-  const year=parseInt(document.getElementById('graph-year').value);
-  const data=secData[year]||{};
-  const months=Object.keys(data).map(Number).sort((a,b)=>a-b);
-  if(!months.length){
-    const barsEl=document.getElementById('rate-bars');
-    const labelsEl=document.getElementById('rate-labels');
-    const tbody=document.getElementById('rate-tbody');
-    if(barsEl)barsEl.innerHTML='<div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;color:var(--text3);font-size:12px">'+year+'年のデータがありません</div>';
-    if(labelsEl)labelsEl.innerHTML='';
-    if(tbody)tbody.innerHTML='';
-    return;
-  }
-  const riskAmounts=months.map(m=>data[m].riskTotal||0);
-  const maxRisk=Math.max(...riskAmounts,1);
-  const rates=months.map(m=>{const d=data[m];return d.deposit>0?(d.pnl/d.deposit*100):0;});
-  const now=new Date();
-  const currentMonth=(year===now.getFullYear())?now.getMonth()+1:null;
-  const barMaxH=84;
-
-  const barsEl=document.getElementById('rate-bars');
-  const labelsEl=document.getElementById('rate-labels');
-  barsEl.innerHTML='';if(labelsEl)labelsEl.innerHTML='';
-
-  months.forEach((m,idx)=>{
-    const risk=riskAmounts[idx];
-    const rate=rates[idx];
-    const barH=Math.max(2,Math.round(risk/maxRisk*barMaxH));
-    const isCur=m===currentMonth;
-    const col=document.createElement('div');
-    col.style.cssText=`flex:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${barMaxH+20}px`;
-    const color=rate>=0?'var(--mint)':'var(--red)';
-    const rateStr=(rate>=0?'+':'')+rate.toFixed(1)+'%';
-    const man=Math.round(risk/10000);
-    col.innerHTML=`
-      <div style="font-size:8px;font-family:'DM Mono',monospace;font-weight:700;color:${color};white-space:nowrap;height:14px;display:flex;align-items:center;justify-content:center">${rateStr}</div>
-      <div style="width:70%;height:${barH}px;background:${color};border-radius:3px 3px 0 0;opacity:${isCur?1:0.55}"></div>
-      <div style="font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;text-align:center;margin-top:2px">¥${man}万</div>
-      <div style="font-size:9px;font-family:'DM Mono',monospace;color:${isCur?'var(--accent)':'var(--text3)'};font-weight:${isCur?700:400};margin-top:2px">${m}月</div>`;
-    barsEl.appendChild(col);
-  });
-
-  // テーブル
-  const tbody=document.getElementById('rate-tbody');tbody.innerHTML='';
-  months.forEach((m,idx)=>{
-    const d=data[m];const rate=rates[idx];
-    const isCur=m===currentMonth;
-    const rateClass=rate>=0?'pos':'neg';
-    const rateStr=(rate>=0?'+':'')+rate.toFixed(2)+'%';
-    tbody.innerHTML+=`<tr style="${isCur?'font-weight:700;':''}">
-      <td>${m}月</td>
-      <td class="num">¥${(d.riskTotal||0).toLocaleString()}</td>
-      <td class="num ${rate>=0?'pos':'neg'}">${rate>=0?'＋':''}¥${Math.abs(d.pnl).toLocaleString()}</td>
-      <td class="num ${rateClass}">${rateStr}</td></tr>`;
-  });
-}
 
 // ── 差異調整モーダル（正負対応） ──
 let adjustSign = 1; // 1=プラス, -1=マイナス
