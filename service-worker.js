@@ -1,4 +1,4 @@
-const CACHE_NAME = 'okanenote-v1';
+const CACHE_NAME = 'okanenote-v3';
 const ASSETS = [
   '/kakeibo/',
   '/kakeibo/index.html',

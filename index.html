@@ -309,16 +309,16 @@ body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-s
     <div class="list-item"><div class="list-left"><div class="list-dot" style="background:var(--blue)"></div><div><div class="list-name">楽天銀行（出金）</div><div class="list-sub">CSV取込</div></div></div><div class="list-amount" id="sum-bank">¥0</div></div>
   </div>
 
-  <div class="card">
-    <div class="card-label">カテゴリ別</div>
-    <div id="sum-category-bars"><div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">データを取り込むとここに表示されます</div></div>
-  </div>
-
   <!-- グラフ共通年セレクタ -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;margin-top:8px">
     <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">グラフ表示年</div>
     <select class="period-select" style="font-size:12px;padding:6px 14px" id="graph-year" onchange="onGraphYearChange()">
     </select>
+  </div>
+
+  <div class="card">
+    <div class="card-label">カテゴリ別</div>
+    <div id="sum-category-bars"><div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">データを取り込むとここに表示されます</div></div>
   </div>
 
   <!-- 資産推移 -->
