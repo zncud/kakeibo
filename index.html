@@ -1355,10 +1355,49 @@ onRecPeriodChange();
 initEntryScreen();
 
 // GAS URL設定済み表示 & 初期データ取得（1リクエストで一括取得）
+// ── 前回データをキャッシュから即時表示 ──
+function applyCache() {
+  try {
+    const cache = JSON.parse(localStorage.getItem('summary_cache') || 'null');
+    if (!cache) return;
+    // サマリー
+    if (cache.summary?.ok) applySummaryData(cache.summary, cache.prevSummary);
+    // 資産推移
+    if (cache.trend?.ok && cache.trend.data?.length) {
+      const trendYear = parseInt(document.getElementById('trend-year').value);
+      assetData[trendYear] = {};
+      cache.trend.data.forEach(r => {
+        const m = parseInt(r.yearMonth.split('/')[1]);
+        assetData[trendYear][m] = { bank: r.bank, sec: r.sec, cash: r.cash };
+      });
+      renderTrend();
+    }
+    // 証券利益率
+    if (cache.secRate?.ok && cache.secRate.data?.length) {
+      const rYear = parseInt(document.getElementById('rate-year').value);
+      secData[rYear] = {};
+      cache.secRate.data.forEach(r => {
+        const m = parseInt(r.yearMonth.split('/')[1]);
+        secData[rYear][m] = { deposit: r.cumDeposit, pnl: r.cumPnl, riskTotal: r.riskTotal };
+      });
+      renderRateChart();
+    }
+    // 資産照合
+    if (cache.latestAsset?.ok) applyLatestAsset(cache.latestAsset);
+    // カテゴリ
+    if (cache.categories?.ok && Array.isArray(cache.categories.categories)) {
+      categories = cache.categories.categories;
+      renderCategories();
+    }
+  } catch(e) {}
+}
+
 window.addEventListener('load', async () => {
   const el = document.getElementById('gas-url-status');
   if (GAS_URL && el) el.textContent = '設定済';
   if (GAS_URL) {
+    // 前回キャッシュを即時表示（体感速度改善）
+    applyCache();
     try {
       const year     = parseInt(document.getElementById('sum-year').value);
       const month    = parseInt(document.getElementById('sum-month').value);
@@ -1384,10 +1423,8 @@ window.addEventListener('load', async () => {
         categories = d.categories.categories;
         renderCategories();
       }
-
       // サマリー
       applySummaryData(d.summary, d.prevSummary);
-
       // 資産推移
       if (d.trend?.ok && d.trend.data?.length) {
         assetData[trendYear] = {};
@@ -1397,7 +1434,6 @@ window.addEventListener('load', async () => {
         });
         renderTrend();
       }
-
       // 証券利益率
       if (d.secRate?.ok && d.secRate.data?.length) {
         const rYear = parseInt(document.getElementById('rate-year').value);
@@ -1408,9 +1444,19 @@ window.addEventListener('load', async () => {
         });
         renderRateChart();
       }
-
       // 資産照合
       if (d.latestAsset?.ok) applyLatestAsset(d.latestAsset);
+
+      // 今回のデータをキャッシュ保存
+      localStorage.setItem('summary_cache', JSON.stringify({
+        summary: d.summary,
+        prevSummary: d.prevSummary,
+        trend: d.trend,
+        secRate: d.secRate,
+        latestAsset: d.latestAsset,
+        categories: d.categories,
+        cachedAt: Date.now(),
+      }));
 
     } catch(e) {}
   }
