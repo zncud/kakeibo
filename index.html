@@ -309,17 +309,17 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
     <div class="list-item"><div class="list-left"><div class="list-dot" style="background:var(--blue)"></div><div><div class="list-name">楽天銀行（出金）</div><div class="list-sub">CSV取込</div></div></div><div class="list-amount" id="sum-bank">¥0</div></div>
   </div>
 
-  <!-- グラフ共通年セレクタ -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;margin-top:8px">
-    <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">グラフ表示年</div>
-    <select class="period-select" style="font-size:12px;padding:6px 14px" id="graph-year" onchange="onGraphYearChange()">
-    </select>
-  </div>
-
   <div class="card">
     <div class="card-label">カテゴリ別</div>
     <div id="sum-category-bars"><div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">データを取り込むとここに表示されます</div></div>
   </div>
+
+    <!-- グラフ共通年セレクタ -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;margin-top:8px">
+      <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">グラフ表示年</div>
+      <select class="period-select" style="font-size:12px;padding:6px 14px" id="graph-year" onchange="onGraphYearChange()">
+      </select>
+    </div>
 
   <!-- 資産推移 -->
   <div class="card">
@@ -393,16 +393,16 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
 
     <!-- 明細月の指定 -->
     <div style="background:var(--accent-light);border-radius:12px;padding:12px 14px;margin-bottom:14px">
-      <div class="form-label" style="margin-bottom:8px">📅 この明細は何月分ですか？</div>
+      <div class="form-label" style="margin-bottom:4px">📅 記録月の指定</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:10px">この明細は下記の月として家計簿に登録されます。必要に応じて変更してください。</div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <select class="period-select" id="import-year" style="font-size:13px;padding:7px 12px"></select>
+        <select class="period-select" id="import-year" style="font-size:13px;padding:7px 12px" onchange="updateImportMonthLabel()"></select>
         <span class="period-label">年</span>
-        <select class="period-select" id="import-month" style="font-size:13px;padding:7px 12px"></select>
-        <span class="period-label">月分</span>
+        <select class="period-select" id="import-month" style="font-size:13px;padding:7px 12px" onchange="updateImportMonthLabel()"></select>
+        <span class="period-label">月</span>
+        <span style="font-size:12px;font-weight:700;color:var(--accent)" id="import-month-badge">の家計簿に登録</span>
       </div>
-      <div style="margin-top:8px;font-size:10px;color:var(--text2)" id="import-month-note">
-        ※ この月として概要・集計に登録されます
-      </div>
+      <div style="margin-top:8px;font-size:10px;color:var(--text2)" id="import-month-note"></div>
     </div>
 
     <table class="preview-table">
@@ -1924,13 +1924,16 @@ async function runAutoClassify() {
   if (GAS_URL) await refreshSummary(); else refreshSummaryLocal();
 }
 
-// ── 個別編集モーダル（カテゴリのみ or 全項目）──
+// ── 個別編集モーダル（全ソース対応）──
 function openEditDetail(uid) {
   const row = detailRows.find(r => r._uid === uid);
   if (!row) return;
-  const isCash = row.src === 'cash';
-  openModal(isCash ? '明細を編集' : 'カテゴリを編集', `
-    ${isCash ? `
+  openModal('明細を編集', `
+    <div style="padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:14px">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:4px">元データ</div>
+      <div style="font-size:13px;font-weight:500">${row.shop}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">¥${row.amount.toLocaleString()} · ${row.date}</div>
+    </div>
     <div class="form-group">
       <label class="form-label">店名・内容</label>
       <input type="text" class="form-input" id="edit-shop" value="${row.shop || ''}">
@@ -1938,11 +1941,7 @@ function openEditDetail(uid) {
     <div class="form-group">
       <label class="form-label">金額（円）</label>
       <input type="number" class="form-input" id="edit-amount" value="${row.amount}" inputmode="numeric">
-    </div>` : `
-    <div style="padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:14px">
-      <div style="font-size:13px;font-weight:500">${row.shop}</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:2px">¥${row.amount.toLocaleString()} · ${row.date}</div>
-    </div>`}
+    </div>
     <div class="form-group" style="margin-bottom:0">
       <label class="form-label">カテゴリ</label>
       <select class="form-input" id="edit-cat">
@@ -1960,9 +1959,8 @@ function openEditDetail(uid) {
 async function submitEditDetail(uid) {
   const row = detailRows.find(r => r._uid === uid);
   if (!row) return;
-  const isCash = row.src === 'cash';
-  const shop   = isCash ? (document.getElementById('edit-shop')?.value.trim() || row.shop) : row.shop;
-  const amount = isCash ? (parseInt(document.getElementById('edit-amount')?.value) || row.amount) : row.amount;
+  const shop   = document.getElementById('edit-shop')?.value.trim() || row.shop;
+  const amount = parseInt(document.getElementById('edit-amount')?.value) || row.amount;
   const cat    = document.getElementById('edit-cat').value;
 
   row.shop = shop; row.amount = amount; row.category = cat;
@@ -2206,6 +2204,13 @@ function initImportMonthSelector() {
     if (m === now.getMonth() + 1) o.selected = true;
     monthEl.appendChild(o);
   }
+}
+
+function updateImportMonthLabel() {
+  const y = document.getElementById('import-year')?.value;
+  const m = document.getElementById('import-month')?.value;
+  const badge = document.getElementById('import-month-badge');
+  if (badge && y && m) badge.textContent = `${y}年${m}月の家計簿に登録`;
 }
 
 function getImportYearMonth() {
@@ -2600,13 +2605,16 @@ function autoDetectImportMonth(rows, cardType) {
   if (yearEl) { [...yearEl.options].forEach(o => o.selected = (parseInt(o.value) === year)); }
   if (monthEl) { [...monthEl.options].forEach(o => o.selected = (parseInt(o.value) === month)); }
 
+  // ラベルを更新
+  updateImportMonthLabel();
+
   // 注記を更新
   const noteEl = document.getElementById('import-month-note');
   if (noteEl) {
     if (cardType === 'paypay' || cardType === 'bank') {
-      noteEl.textContent = `※ CSVの利用日（${year}年${month}月）から自動検出しました`;
+      noteEl.textContent = `※ PDF/CSVの利用日（${year}年${month}月）から自動検出しました。すべての明細がこの月として登録されます。`;
     } else {
-      noteEl.textContent = `※ CSVの日付（${year}年${month}月）から自動検出。引落月に合わせて変更もできます`;
+      noteEl.textContent = `※ PDF/CSVの日付（${year}年${month}月）から自動検出。引落月など実際の記録月に合わせて変更できます。すべての明細が指定した月として登録されます。`;
     }
   }
 }
@@ -2650,9 +2658,22 @@ async function importCSVToGAS() {
   const taggedRows = pending.rows.map(r => ({ ...r, statementYearMonth: ym }));
 
   if (!GAS_URL) {
-    storeImportedRows(pending.cardType, taggedRows);
+    // ローカル：同一明細（日付＋店名＋金額が完全一致）は除外して追加
+    const existing = localStore[pending.cardType] || [];
+    const newRows = taggedRows.filter(r =>
+      !existing.some(e =>
+        e.date === r.date && e.shop === r.shop &&
+        (e.amount || e.withdrawal) === (r.amount || r.withdrawal)
+      )
+    );
+    if (!newRows.length) {
+      showToast('⚠ 新しい明細はありませんでした（すべて取込済み）', true);
+      return;
+    }
+    storeImportedRows(pending.cardType, newRows);
     importedFiles.push(pending.filename);
-    showToast(`✅ ${pending.rows.length}件を取込みました（${ym}分・ローカル）`);
+    const skipped = taggedRows.length - newRows.length;
+    showToast(`✅ ${newRows.length}件を取込みました（${ym}分・ローカル）` + (skipped ? `　${skipped}件はスキップ` : ''));
     document.getElementById('csv-preview').style.display = 'none';
     window._pendingImport = null;
     refreshSummaryLocal();
@@ -2666,15 +2687,19 @@ async function importCSVToGAS() {
       : pending.cardType === 'smbc'
         ? (appSettings.smbc_billing_day || 25)
         : null;
-    const result = await callGAS('importCSV', { ...pending, rows: taggedRows, billingDay });
+    // allowPartial=true で「未記録の明細のみ追加」をGASに指示
+    const result = await callGAS('importCSV', { ...pending, rows: taggedRows, billingDay, allowPartial: true });
     if (!result) return;
-    if (result.duplicate) { showToast('⚠ 取込済みファイルです', true); return; }
     if (result.ok) {
       storeImportedRows(pending.cardType, taggedRows);
       importedFiles.push(pending.filename);
       // 明細キャッシュをクリアして次回再取得
       delete detailCache[ym];
-      showToast(`✅ ${result.count}件を取込みました（${ym}分）`);
+      const skipped = result.skipped || 0;
+      const added   = result.count   || 0;
+      let msg = `✅ ${added}件を取込みました（${ym}分）`;
+      if (skipped) msg += `　${skipped}件はすでに記録済みのためスキップ`;
+      showToast(msg);
       document.getElementById('csv-preview').style.display = 'none';
       window._pendingImport = null;
       await refreshSummary();
