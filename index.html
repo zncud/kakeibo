@@ -2590,31 +2590,48 @@ function parseAmount(str) {
 
 // CSVの日付から取込月を自動推測してセレクタにセット
 function autoDetectImportMonth(rows, cardType) {
-  // 最初の有効な日付を拾う
-  const firstDate = rows[0]?.date;
-  if (!firstDate) return;
-  const parts = String(firstDate).split('/');
-  if (parts.length < 2) return;
-  const year = parseInt(parts[0]);
-  const month = parseInt(parts[1]);
-  if (!year || !month) return;
+  // 全行の年月を集計して最も多い月を使う
+  const monthCount = {};
+  rows.forEach(r => {
+    const parts = String(r.date || '').split('/');
+    if (parts.length < 2) return;
+    const y = parseInt(parts[0]);
+    const m = parseInt(parts[1]);
+    if (!y || !m) return;
+    const key = `${y}/${String(m).padStart(2,'0')}`;
+    monthCount[key] = (monthCount[key] || 0) + 1;
+  });
 
-  // 楽天・三井住友は「利用日の翌月」が引落月 → 利用月をそのままセット（ユーザーが確認して変更可）
-  const yearEl = document.getElementById('import-year');
+  if (!Object.keys(monthCount).length) return;
+
+  // 最も件数が多い年月を採用（同数なら新しい月を優先）
+  const bestKey = Object.entries(monthCount)
+    .sort((a, b) => b[1] - a[1] || b[0].localeCompare(a[0]))[0][0];
+
+  const [yearStr, monthStr] = bestKey.split('/');
+  const year  = parseInt(yearStr);
+  const month = parseInt(monthStr);
+
+  const yearEl  = document.getElementById('import-year');
   const monthEl = document.getElementById('import-month');
-  if (yearEl) { [...yearEl.options].forEach(o => o.selected = (parseInt(o.value) === year)); }
+  if (yearEl)  { [...yearEl.options].forEach(o => o.selected = (parseInt(o.value) === year)); }
   if (monthEl) { [...monthEl.options].forEach(o => o.selected = (parseInt(o.value) === month)); }
 
   // ラベルを更新
   updateImportMonthLabel();
 
-  // 注記を更新
+  // 件数の内訳を補足表示
+  const breakdown = Object.entries(monthCount)
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([ym, cnt]) => `${ym}（${cnt}件）`)
+    .join('、');
+
   const noteEl = document.getElementById('import-month-note');
   if (noteEl) {
     if (cardType === 'paypay' || cardType === 'bank') {
-      noteEl.textContent = `※ PDF/CSVの利用日（${year}年${month}月）から自動検出しました。すべての明細がこの月として登録されます。`;
+      noteEl.textContent = `※ 最も多い利用月（${year}年${month}月）を自動検出。内訳：${breakdown}。すべての明細がこの月として登録されます。`;
     } else {
-      noteEl.textContent = `※ PDF/CSVの日付（${year}年${month}月）から自動検出。引落月など実際の記録月に合わせて変更できます。すべての明細が指定した月として登録されます。`;
+      noteEl.textContent = `※ 最も多い利用月（${year}年${month}月）を自動検出。内訳：${breakdown}。引落月など実際の記録月に合わせて変更できます。`;
     }
   }
 }
