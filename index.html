@@ -1952,10 +1952,10 @@ function renderDetails() {
       : `<span class="cat-tag empty">未分類</span>`;
     const isCash = r.src === 'cash';
     const uid = r._uid;
-    const actions = isCash
-      ? `<button class="icon-btn icon-btn-edit" onclick="openEditDetail('${uid}')" title="編集">✏️</button>
-         <button class="icon-btn icon-btn-del" onclick="confirmDeleteDetail('${uid}')" title="削除">🗑</button>`
-      : `<button class="icon-btn icon-btn-edit" onclick="openEditDetail('${uid}')" title="カテゴリ編集">🏷</button>`;
+    const editIcon = isCash ? '✏️' : '🏷';
+    const editTitle = isCash ? '編集' : '編集';
+    const actions = `<button class="icon-btn icon-btn-edit" onclick="openEditDetail('${uid}')" title="${editTitle}">${editIcon}</button>
+       <button class="icon-btn icon-btn-del" onclick="confirmDeleteDetail('${uid}')" title="削除">🗑</button>`;
     const amtColor = isIncome ? 'color:var(--mint)' : '';
     const amtPrefix = isIncome ? '＋' : '';
     return `<div class="detail-item">
