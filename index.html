@@ -411,7 +411,7 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
     </div>
 
     <table class="preview-table">
-      <thead><tr><th id="preview-date-header">引落日</th><th>店名</th><th style="text-align:right">金額</th></tr></thead>
+      <thead><tr><th id="preview-date-header">日付</th><th>店名</th><th style="text-align:right">金額</th><th></th></tr></thead>
       <tbody id="preview-tbody">
       </tbody>
     </table>
@@ -2732,28 +2732,43 @@ function autoDetectImportMonth(rows, cardType) {
 }
 
 function updatePreview(rows, cardType, filename) {
-  const isPayPay = cardType === 'paypay';
-  const isBank = cardType === 'bank';
-  document.getElementById('preview-date-header').textContent = (isPayPay || isBank) ? '利用日' : '利用日';
   const tbody = document.getElementById('preview-tbody');
-  const show = rows.slice(0, 5);
-  tbody.innerHTML = show.map(r => {
-    const amt = r.amount || r.withdrawal || 0;
-    return `<tr><td style="color:var(--text3);font-size:10px">${r.date || ''}</td><td>${r.shop}</td><td class="amt">¥${amt.toLocaleString()}</td></tr>`;
-  }).join('');
-  // 残り件数
   const moreEl = document.getElementById('preview-more');
-  if (moreEl) {
-    if (rows.length > 5) { moreEl.style.display='block'; moreEl.textContent=`…他${rows.length - 5}件`; }
-    else moreEl.style.display='none';
-  }
-  // 件数バッジ更新
+  if (moreEl) moreEl.style.display = 'none';
+
+  const inputStyle = 'border:1px solid var(--border2);border-radius:4px;padding:3px 5px;background:var(--bg);color:var(--text);font-family:\'DM Mono\',monospace';
+  tbody.innerHTML = rows.map((r, idx) => {
+    const amt = r.amount || r.withdrawal || 0;
+    const dateVal = String(r.date || '').replace(/\//g, '-');
+    const shopVal = (r.shop || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return `<tr>
+      <td><input type="date" data-field="date" value="${dateVal}" style="${inputStyle};font-size:10px;width:116px" oninput="updatePreviewTotal()"></td>
+      <td><input type="text" data-field="shop" value="${shopVal}" style="${inputStyle};font-size:11px;width:100%;min-width:80px" ></td>
+      <td><input type="number" data-field="amount" value="${amt}" style="${inputStyle};font-size:11px;width:72px;text-align:right" oninput="updatePreviewTotal()"></td>
+      <td><button onclick="removePreviewRow(this)" style="color:var(--red);background:none;border:none;cursor:pointer;font-size:15px;padding:2px 4px;line-height:1">×</button></td>
+    </tr>`;
+  }).join('');
+
   const badge = document.getElementById('preview-count-badge');
   if (badge) badge.textContent = rows.length + '件';
-  // 合計金額更新
-  const total = rows.reduce((s, r) => s + (r.amount || r.withdrawal || 0), 0);
-  const totalAmtEl = document.getElementById('preview-total');
-  if (totalAmtEl) totalAmtEl.textContent = '¥' + total.toLocaleString();
+  updatePreviewTotal();
+}
+
+function removePreviewRow(btn) {
+  btn.closest('tr').remove();
+  const count = document.querySelectorAll('#preview-tbody tr').length;
+  const badge = document.getElementById('preview-count-badge');
+  if (badge) badge.textContent = count + '件';
+  updatePreviewTotal();
+}
+
+function updatePreviewTotal() {
+  let total = 0;
+  document.querySelectorAll('#preview-tbody input[data-field="amount"]').forEach(el => {
+    total += parseInt(el.value) || 0;
+  });
+  const el = document.getElementById('preview-total');
+  if (el) el.textContent = '¥' + total.toLocaleString();
 }
 
 async function importCSVToGAS() {
@@ -2766,13 +2781,21 @@ async function importCSVToGAS() {
   pending.statementMonth = month;
   pending.statementYearMonth = ym;
 
-  // ローカルストア用：各rowにstatementYearMonthを付与
-  const taggedRows = pending.rows.map(r => ({ ...r, statementYearMonth: ym }));
+  // プレビューテーブルから編集済み行を取得
+  const editedRows = Array.from(document.querySelectorAll('#preview-tbody tr')).map(tr => {
+    const date   = (tr.querySelector('input[data-field="date"]')?.value  || '').replace(/-/g, '/');
+    const shop   =  tr.querySelector('input[data-field="shop"]')?.value  || '';
+    const amount = parseInt(tr.querySelector('input[data-field="amount"]')?.value) || 0;
+    return { date, shop, amount };
+  }).filter(r => r.amount > 0 && r.date);
+
+  if (!editedRows.length) { showToast('⚠ 取込するデータがありません', true); return; }
+  const taggedRows = editedRows.map(r => ({ ...r, statementYearMonth: ym }));
 
   if (!GAS_URL) {
     storeImportedRows(pending.cardType, taggedRows);
     importedFiles.push(pending.filename);
-    showToast(`✅ ${pending.rows.length}件を取込みました（${ym}分・ローカル）`);
+    showToast(`✅ ${taggedRows.length}件を取込みました（${ym}分・ローカル）`);
     document.getElementById('csv-preview').style.display = 'none';
     window._pendingImport = null;
     refreshSummaryLocal();
@@ -2789,7 +2812,7 @@ async function importCSVToGAS() {
       importedFiles.push(pending.filename);
       // 明細キャッシュをクリアして次回再取得
       delete detailCache[ym];
-      showToast(`✅ ${result.count}件を取込みました（${ym}分）`);
+      showToast(`✅ ${result.count ?? taggedRows.length}件を取込みました（${ym}分）`);
       document.getElementById('csv-preview').style.display = 'none';
       window._pendingImport = null;
       await refreshSummary();
