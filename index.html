@@ -441,6 +441,15 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
 
   <div class="card">
     <div class="form-group"><label class="form-label">日付</label><input type="date" class="form-input" id="cash-date"></div>
+    <div class="form-group">
+      <label class="form-label">支払元</label>
+      <select class="form-input" id="cash-src">
+        <option value="cash">💴 現金</option>
+        <option value="rakuten">🔴 楽天カード</option>
+        <option value="smbc">🟢 三井住友カード</option>
+        <option value="paypay">🔴 PayPay</option>
+      </select>
+    </div>
     <div class="form-group" id="entry-cat-group">
       <label class="form-label">カテゴリ</label>
       <select class="form-input" id="cash-cat"><option value="">— 選択してください —</option></select>
@@ -450,11 +459,6 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
   </div>
   <button class="btn btn-primary" id="entry-submit-btn" onclick="submitEntryToGAS()">💾 登録する</button>
 
-  <div class="divider"></div>
-  <div class="card-label" style="margin-bottom:10px">今月の記録</div>
-  <div class="card" id="cash-list">
-    <div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">登録するとここに表示されます</div>
-  </div>
 </div>
 </div>
 
@@ -568,7 +572,10 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
   <!-- 件数・合計 -->
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <span style="font-size:11px;color:var(--text3)" id="det-count">0件</span>
-    <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--accent)" id="det-total">¥0</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button onclick="confirmDeleteAll()" style="font-size:11px;color:var(--red);border:1.5px solid var(--red);background:var(--red-light);padding:5px 10px;border-radius:8px;cursor:pointer;font-family:'Zen Maru Gothic',sans-serif;font-weight:700">🗑 全件削除</button>
+      <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--accent)" id="det-total">¥0</span>
+    </div>
   </div>
 
   <div class="card" id="det-list" style="padding:0 16px">
@@ -1500,20 +1507,7 @@ function handleCSV(input){
 function importCSVMock(){showToast('✅ スプレッドシートに取込みました');document.getElementById('csv-preview').style.display='none';}
 
 // ── 現金入力 ──
-function submitCash(){
-  const shop=document.getElementById('cash-shop').value.trim();
-  const amount=document.getElementById('cash-amount').value;
-  const cat=document.getElementById('cash-cat').value;
-  const date=document.getElementById('cash-date').value;
-  if(!shop||!amount||!cat){showToast('⚠ 全項目を入力してください',true);return;}
-  const list=document.getElementById('cash-list');
-  const item=document.createElement('div');item.className='list-item';
-  const d=date.slice(5).replace('-','/');
-  item.innerHTML=`<div class="list-left"><div><div class="list-name">${shop}</div><div class="list-sub">${d} · <span class="chip chip-plain">${cat}</span></div></div></div><div class="list-amount">¥${Number(amount).toLocaleString()}</div>`;
-  list.insertBefore(item,list.firstChild);
-  document.getElementById('cash-shop').value='';document.getElementById('cash-amount').value='';document.getElementById('cash-cat').value='';
-  showToast('✅ 現金支出を記録しました');
-}
+
 
 // ── モーダル各種 ──
 function openBalanceModal(label,current){openModal(label+'の残高を更新',`<div class="form-group"><label class="form-label">残高（円）</label><input type="number" class="form-input" value="${current}" inputmode="numeric"></div><button class="btn btn-primary" onclick="closeModal();showToast('残高を更新しました ✓')">更新する</button>`);}
@@ -2012,7 +2006,12 @@ function openEditDetail(uid) {
   const row = detailRows.find(r => r._uid === uid);
   if (!row) return;
   const isCash = row.src === 'cash';
-  openModal(isCash ? '明細を編集' : 'カテゴリを編集', `
+  const dateVal = String(row.date || '').replace(/\//g, '-');
+  openModal('明細を編集', `
+    <div class="form-group">
+      <label class="form-label">日付</label>
+      <input type="date" class="form-input" id="edit-date" value="${dateVal}">
+    </div>
     ${isCash ? `
     <div class="form-group">
       <label class="form-label">店名・内容</label>
@@ -2024,7 +2023,7 @@ function openEditDetail(uid) {
     </div>` : `
     <div style="padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:14px">
       <div style="font-size:13px;font-weight:500">${row.shop}</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:2px">¥${row.amount.toLocaleString()} · ${row.date}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">¥${row.amount.toLocaleString()}</div>
     </div>`}
     <div class="form-group" style="margin-bottom:0">
       <label class="form-label">カテゴリ</label>
@@ -2047,13 +2046,15 @@ async function submitEditDetail(uid) {
   const shop   = isCash ? (document.getElementById('edit-shop')?.value.trim() || row.shop) : row.shop;
   const amount = isCash ? (parseInt(document.getElementById('edit-amount')?.value) || row.amount) : row.amount;
   const cat    = document.getElementById('edit-cat').value;
+  const editDateRaw = document.getElementById('edit-date')?.value;
+  const date   = editDateRaw ? editDateRaw.replace(/-/g, '/') : row.date;
 
-  row.shop = shop; row.amount = amount; row.category = cat;
+  row.shop = shop; row.amount = amount; row.category = cat; row.date = date;
   closeModal();
   renderDetails();
 
   if (GAS_URL && row.rowNum) {
-    await callGAS('updateDetail', { src: row.src, rowNum: row.rowNum, shop, amount, category: cat });
+    await callGAS('updateDetail', { src: row.src, rowNum: row.rowNum, shop, amount, category: cat, date });
     showToast('✅ 更新しました');
     await refreshSummary();
   } else {
@@ -2096,6 +2097,42 @@ async function submitDeleteDetail(uid) {
   } else {
     showToast('🗑 削除しました', true);
     refreshSummaryLocal();
+  }
+}
+
+// ── 全件削除 ──
+function confirmDeleteAll() {
+  const year  = parseInt(document.getElementById('det-year').value);
+  const month = parseInt(document.getElementById('det-month').value);
+  const ym = `${year}/${String(month).padStart(2,'0')}`;
+  if (!detailRows.length) { showToast('削除するデータがありません', true); return; }
+  openModal('全件削除', `
+    <div style="background:var(--red-light);border:1.5px solid rgba(240,56,88,.25);border-radius:12px;padding:14px;margin-bottom:16px;font-size:13px;color:var(--red);font-weight:500">
+      ⚠ ${ym} の明細 ${detailRows.length}件をすべて削除します。<br>この操作は元に戻せません。
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" style="flex:1;background:var(--red);box-shadow:none" onclick="submitDeleteAll('${ym}')">すべて削除する</button>
+      <button class="btn btn-outline" style="flex:0 0 auto;width:auto;padding:14px 16px" onclick="closeModal()">キャンセル</button>
+    </div>
+  `);
+}
+async function submitDeleteAll(ym) {
+  closeModal();
+  const [year, month] = ym.split('/').map(Number);
+  if (GAS_URL) {
+    const res = await callGAS('deleteAllDetails', { year, month });
+    if (res?.ok) {
+      detailRows = []; delete detailCache[ym];
+      renderDetails(); markDirty('summary');
+      showToast(`🗑 ${ym} の明細をすべて削除しました`, true);
+    } else { showToast('⚠ 削除に失敗しました', true); }
+  } else {
+    ['rakuten','smbc','paypay','bank','cash'].forEach(src => {
+      localStore[src] = (localStore[src] || []).filter(r => !String(r.date).startsWith(ym));
+    });
+    detailRows = []; delete detailCache[ym];
+    renderDetails(); refreshSummaryLocal();
+    showToast(`🗑 ${ym} の明細をすべて削除しました`, true);
   }
 }
 
@@ -2824,30 +2861,19 @@ async function submitEntryToGAS() {
   if (!amount) { showToast('⚠ 金額を入力してください', true); return; }
   if (!cat)    { showToast('⚠ カテゴリを選択してください', true); return; }
 
+  const src       = document.getElementById('cash-src')?.value || 'cash';
   const isIncome  = entryMode === 'income';
-  const signedAmt = isIncome ? -amount : amount; // 現金シートは支出が正・収入が負
+  const signedAmt = isIncome ? -amount : amount; // 支出が正・収入/返金が負
   const label     = shop || cat;
-
-  // UIリストに追加
-  const list = document.getElementById('cash-list');
-  const placeholder = list.querySelector('div[style*="text-align:center"]');
-  if (placeholder) placeholder.remove();
-  const item = document.createElement('div');
-  item.className = 'list-item';
-  item.innerHTML = `
-    <div class="list-left"><div>
-      <div class="list-name">${label}</div>
-      <div class="list-sub">${date.slice(5)} · <span class="chip chip-plain">${cat}</span></div>
-    </div></div>
-    <div class="list-amount" style="color:${isIncome ? 'var(--mint)' : 'var(--red)'}">
-      ${isIncome ? '＋' : '－'} ¥${amount.toLocaleString()}
-    </div>`;
-  list.insertBefore(item, list.firstChild);
 
   document.getElementById('cash-shop').value = '';
   document.getElementById('cash-amount').value = '';
 
-  storeCashEntry(date, label, signedAmt, cat);
+  // 支払元別にローカルストアへ追加
+  if (src === 'rakuten') localStore.rakuten.push({ date, shop: label, amount: signedAmt, category: cat });
+  else if (src === 'smbc') localStore.smbc.push({ date, shop: label, amount: signedAmt, category: cat });
+  else if (src === 'paypay') localStore.paypay.push({ date, shop: label, amount: signedAmt, category: cat });
+  else storeCashEntry(date, label, signedAmt, cat);
   refreshSummaryLocal();
   markDirty('details');
 
@@ -2855,7 +2881,7 @@ async function submitEntryToGAS() {
     showToast(`✅ ${isIncome ? '収入' : '支出'}を登録しました（ローカル）`);
     return;
   }
-  const result = await callGAS('addCash', { date, shop: label, amount: signedAmt, category: cat });
+  const result = await callGAS('addCash', { date, shop: label, amount: signedAmt, category: cat, src });
   if (result?.ok) {
     showToast(`✅ ${isIncome ? '収入' : '支出'}を登録しました`);
     await refreshSummary();
