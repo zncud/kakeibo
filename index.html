@@ -6,7 +6,7 @@
 <title>おかねノート</title>
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#4f80f8">
+<meta name="theme-color" content="#d4a017">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="おかねノート">
@@ -24,21 +24,21 @@ if (typeof pdfjsLib !== 'undefined') {
 </script>
 <style>
 :root {
-  --bg:#f2f6ff;--bg2:#f8fbff;--surface:#ffffff;
-  --border:#dce8f8;--border2:#b8d0ef;
-  --text:#1a2d4e;--text2:#4a6280;--text3:#8aa4c2;
-  --accent:#4f80f8;--accent-light:#ebf0ff;--accent2:#7a9cfb;
-  --pink:#f04878;--pink-light:#fff0f5;
-  --mint:#12c88a;--mint-light:#e2fbf3;
-  --blue:#28a8e8;--blue-light:#e5f4fd;
-  --yellow:#f5b400;--yellow-light:#fffcea;
-  --purple:#8855e8;--purple-light:#f0eaff;
-  --red:#f03858;--red-light:#fff0f4;
+  --bg:#fefdf7;--bg2:#fdfcf0;--surface:#ffffff;
+  --border:#f0e8c0;--border2:#e0d090;
+  --text:#1a1508;--text2:#4a3c1c;--text3:#9a8858;
+  --accent:#d4a017;--accent-light:#fef9e7;--accent2:#e8b830;
+  --pink:#e11d48;--pink-light:#fff1f2;
+  --mint:#16a34a;--mint-light:#f0fdf4;
+  --blue:#2563eb;--blue-light:#eff6ff;
+  --yellow:#d97706;--yellow-light:#fffbeb;
+  --purple:#7c3aed;--purple-light:#f5f3ff;
+  --red:#dc2626;--red-light:#fef2f2;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-serif;min-height:100vh}
 
-.header{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(242,246,255,0.96);backdrop-filter:blur(10px);border-bottom:1.5px solid var(--border);height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 18px}
+.header{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(254,253,247,0.97);backdrop-filter:blur(10px);border-bottom:1.5px solid var(--border);height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 18px}
 .logo{font-size:18px;font-weight:700;color:var(--accent)}
 .header-date{background:var(--accent-light);color:var(--accent);font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;font-family:'DM Mono',monospace}
 
@@ -75,9 +75,9 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
 
 .btn{width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;font-size:13px;font-weight:700;font-family:'Zen Maru Gothic',sans-serif;transition:all .15s}
 .btn:active{transform:scale(.97)}
-.btn-primary{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(79,128,248,.3)}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(212,160,23,.3)}
 .btn-outline{background:transparent;color:var(--accent);border:1.5px solid var(--accent)}
-.btn-mint{background:var(--mint);color:#fff;box-shadow:0 4px 12px rgba(18,200,138,.3)}
+.btn-mint{background:var(--mint);color:#fff;box-shadow:0 4px 12px rgba(22,163,74,.3)}
 .btn-sm{width:auto;padding:7px 14px;font-size:11px;border-radius:10px}
 .btn-ghost{background:transparent;color:var(--text3);border:1.5px solid var(--border2);font-size:11px;padding:6px 12px;border-radius:8px;width:auto;cursor:pointer;font-family:'Zen Maru Gothic',sans-serif;font-weight:500}
 
@@ -122,7 +122,7 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
 .bar-value{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);width:58px;text-align:right;flex-shrink:0}
 
 .diff-box{border-radius:12px;padding:13px 14px;margin-bottom:10px}
-.diff-ok{background:var(--mint-light);border:1.5px solid rgba(18,200,138,.3)}
+.diff-ok{background:var(--mint-light);border:1.5px solid rgba(22,163,74,.3)}
 .diff-warn{background:var(--yellow-light);border:1.5px solid rgba(245,200,66,.4)}
 
 .period-selector{display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap}
@@ -144,11 +144,11 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
 
 .divider{height:1px;background:var(--border);margin:16px 0}
 
-.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--mint);color:#fff;padding:10px 22px;border-radius:30px;font-size:12px;font-weight:700;opacity:0;transition:all .25s;pointer-events:none;white-space:nowrap;z-index:500;box-shadow:0 4px 16px rgba(18,200,138,.4)}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--mint);color:#fff;padding:10px 22px;border-radius:30px;font-size:12px;font-weight:700;opacity:0;transition:all .25s;pointer-events:none;white-space:nowrap;z-index:500;box-shadow:0 4px 16px rgba(22,163,74,.4)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.toast.warn{background:var(--red);box-shadow:0 4px 16px rgba(240,56,88,.4)}
+.toast.warn{background:var(--red);box-shadow:0 4px 16px rgba(220,38,38,.4)}
 
-.modal-overlay{position:fixed;inset:0;background:rgba(26,45,78,.25);z-index:300;display:none;align-items:flex-end;backdrop-filter:blur(3px)}
+.modal-overlay{position:fixed;inset:0;background:rgba(26,16,8,.25);z-index:300;display:none;align-items:flex-end;backdrop-filter:blur(3px)}
 .modal-overlay.open{display:flex}
 .modal-sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:16px 20px 44px;animation:slideUp .3s ease;max-height:88vh;overflow-y:auto}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
@@ -280,22 +280,22 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
     <span class="period-label">月</span>
   </div>
 
-  <div class="card" style="background:linear-gradient(135deg,#eef3ff,#ffffff);border-color:#c8d8f8">
+  <div class="card" style="background:linear-gradient(135deg,#fef9e7,#ffffff);border-color:#f0e0a0">
     <div class="card-label" id="sum-period-label">2026年4月の収支</div>
     <!-- 収支サマリー -->
-    <div style="display:flex;gap:10px;margin-bottom:10px">
-      <div style="flex:1;text-align:center">
-        <div style="font-size:9px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:3px">収入</div>
-        <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--mint)" id="sum-income">¥0</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div style="background:var(--mint-light);border:1.5px solid rgba(22,163,74,.2);border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:9px;color:var(--mint);font-family:'DM Mono',monospace;letter-spacing:.1em;margin-bottom:5px">収入</div>
+        <div style="font-family:'DM Mono',monospace;font-size:19px;font-weight:700;color:var(--mint)" id="sum-income">¥0</div>
       </div>
-      <div style="flex:1;text-align:center">
-        <div style="font-size:9px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:3px">支出</div>
-        <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--accent)" id="sum-total">¥0</div>
+      <div style="background:var(--red-light);border:1.5px solid rgba(220,38,38,.2);border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:9px;color:var(--red);font-family:'DM Mono',monospace;letter-spacing:.1em;margin-bottom:5px">支出</div>
+        <div style="font-family:'DM Mono',monospace;font-size:19px;font-weight:700;color:var(--red)" id="sum-total">¥0</div>
       </div>
-      <div style="flex:1;text-align:center">
-        <div style="font-size:9px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:3px">収支</div>
-        <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500" id="sum-balance">¥0</div>
-      </div>
+    </div>
+    <div style="border-radius:12px;padding:12px;text-align:center;margin-bottom:10px;background:var(--bg);border:1.5px solid var(--border)" id="sum-balance-box">
+      <div style="font-size:9px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.1em;margin-bottom:5px">収支差</div>
+      <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700" id="sum-balance">¥0</div>
     </div>
     <div style="font-size:11px;color:var(--text3)">前月比支出 <span id="sum-diff" style="font-weight:700">—</span></div>
   </div>
@@ -306,7 +306,7 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
     <div class="list-item"><div class="list-left"><div class="list-dot" style="background:var(--mint)"></div><div><div class="list-name">三井住友カード</div><div class="list-sub">引落日：翌月10日</div></div></div><div class="list-amount" id="sum-smbc">¥0</div></div>
     <div class="list-item"><div class="list-left"><div class="list-dot" style="background:var(--red)"></div><div><div class="list-name">PayPay<span class="paypay-note">利用日</span></div><div class="list-sub">利用日で記録</div></div></div><div class="list-amount" id="sum-paypay">¥0</div></div>
     <div class="list-item"><div class="list-left"><div class="list-dot" style="background:var(--purple)"></div><div><div class="list-name">現金</div><div class="list-sub">手入力</div></div></div><div class="list-amount" id="sum-cash">¥0</div></div>
-    <div class="list-item"><div class="list-left"><div class="list-dot" style="background:var(--blue)"></div><div><div class="list-name">楽天銀行（出金）</div><div class="list-sub">CSV取込</div></div></div><div class="list-amount" id="sum-bank">¥0</div></div>
+    <div class="list-item"><div class="list-left"><div class="list-dot" style="background:var(--red)"></div><div><div class="list-name">楽天銀行（出金）</div><div class="list-sub">CSV取込</div></div></div><div class="list-amount" id="sum-bank">¥0</div></div>
   </div>
 
   <!-- グラフ共通年セレクタ -->
@@ -326,7 +326,7 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
     <div class="card-label">資産推移（合計）</div>
     <div class="chart-scroll"><div class="chart-bars" id="trend-bars"></div></div>
     <div class="trend-legend">
-      <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--blue)"></div>純資産</div>
+      <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--accent)"></div>純資産</div>
       <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--purple)"></div>証券</div>
     </div>
     <table class="asset-table">
@@ -336,11 +336,11 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
   </div>
 
   <!-- 純資産推移 -->
-  <div class="card" style="border-color:#c5d8f0">
+  <div class="card" style="border-color:#f0e0a0">
     <div class="card-label">🏦 純資産推移（証券内訳）</div>
     <div class="chart-scroll"><div class="chart-bars" id="cash-bars"></div></div>
     <div class="trend-legend" style="margin-top:8px">
-      <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--blue)"></div>累計投資</div>
+      <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--accent)"></div>累計投資</div>
       <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--mint)"></div>利益額</div>
       <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--red)"></div>含み損</div>
     </div>
@@ -351,7 +351,7 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
   </div>
 
   <!-- 証券利益率推移 -->
-  <div class="card" style="border-color:#d0c0f8">
+  <div class="card" style="border-color:#f0e0a0">
     <div class="card-label">📈 証券利益率の推移</div>
     <div style="font-size:10px;color:var(--text3);margin-bottom:10px">損益 ÷ 累計入金額 × 100</div>
     <div class="chart-scroll"><div class="chart-bars" id="rate-bars"></div></div>
@@ -481,24 +481,24 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
   </div>
 
   <!-- 総資産サマリー -->
-  <div class="card" style="background:linear-gradient(135deg,#f0f8ff,#ffffff);border-color:#cce4f8">
+  <div class="card" style="background:linear-gradient(135deg,#fef9e7,#ffffff);border-color:#f0e0a0">
     <div class="card-label" id="rec-period-label">総資産</div>
-    <div class="big-num" style="color:var(--blue)" id="rec-total">¥—<span class="unit">円</span></div>
+    <div class="big-num" style="color:var(--accent)" id="rec-total">¥—<span class="unit">円</span></div>
     <div style="margin-top:6px;font-size:11px;color:var(--text3)">前月比 <span id="rec-diff" style="font-weight:700;color:var(--text3)">—</span></div>
 
     <!-- 内訳 -->
     <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;display:flex;gap:10px">
       <!-- 純資産 -->
-      <div style="flex:1;background:var(--blue-light);border-radius:10px;padding:10px 12px">
-        <div style="font-size:9px;color:var(--blue);font-family:'DM Mono',monospace;letter-spacing:.1em;margin-bottom:4px">SAFE ASSETS</div>
-        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--blue)" id="rec-safe-total">¥—</div>
+      <div style="flex:1;background:#fef3c7;border:1.5px solid rgba(212,160,23,.35);border-radius:10px;padding:10px 12px">
+        <div style="font-size:9px;color:var(--accent);font-family:'DM Mono',monospace;letter-spacing:.1em;margin-bottom:4px">SAFE ASSETS</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--accent)" id="rec-safe-total">¥—</div>
         <div style="font-size:9px;color:var(--text3);margin-top:4px">純資産</div>
         <div style="margin-top:6px;font-size:9px;color:var(--text3);line-height:1.8" id="rec-safe-detail">—</div>
       </div>
       <!-- リスク資産 -->
-      <div style="flex:1;background:var(--purple-light);border-radius:10px;padding:10px 12px">
-        <div style="font-size:9px;color:var(--purple);font-family:'DM Mono',monospace;letter-spacing:.1em;margin-bottom:4px">RISK ASSETS</div>
-        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--purple)" id="rec-risk-total">¥—</div>
+      <div style="flex:1;background:#ffedd5;border:1.5px solid rgba(194,102,10,.3);border-radius:10px;padding:10px 12px">
+        <div style="font-size:9px;color:#c2660a;font-family:'DM Mono',monospace;letter-spacing:.1em;margin-bottom:4px">RISK ASSETS</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:#c2660a" id="rec-risk-total">¥—</div>
         <div style="font-size:9px;color:var(--text3);margin-top:4px">リスク資産（評価額）</div>
         <div style="margin-top:6px;font-size:9px;line-height:1.8" id="rec-risk-detail">—</div>
       </div>
@@ -574,7 +574,7 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
     <span style="font-size:11px;color:var(--text3)" id="det-count">0件</span>
     <div style="display:flex;align-items:center;gap:8px">
       <button onclick="confirmDeleteAll()" style="font-size:11px;color:var(--red);border:1.5px solid var(--red);background:var(--red-light);padding:5px 10px;border-radius:8px;cursor:pointer;font-family:'Zen Maru Gothic',sans-serif;font-weight:700">🗑 全件削除</button>
-      <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--accent)" id="det-total">¥0</span>
+      <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--red)" id="det-total">¥0</span>
     </div>
   </div>
 
@@ -648,7 +648,7 @@ let entryMode = 'income'; // 'income' | 'expense'
 // ── 口座管理（一括入力・一括登録）──
 
 const DEFAULT_ACCOUNTS = [
-  { id: 'bank', name: '楽天銀行', type: 'bank', icon: '🏦', color: 'var(--blue)',   isDefault: true },
+  { id: 'bank', name: '楽天銀行', type: 'bank', icon: '🏦', color: 'var(--red)',   isDefault: true },
   { id: 'cash', name: '現金残高', type: 'cash', icon: '💴', color: 'var(--accent)', isDefault: true },
 ];
 
@@ -659,7 +659,7 @@ function saveCustomAccounts() {
 }
 
 const TYPE_CONFIG = {
-  bank:  { icon: '🏦', color: 'var(--blue)',   label: '銀行' },
+  bank:  { icon: '🏦', color: 'var(--accent)', label: '銀行' },
   sec:   { icon: '📈', color: 'var(--purple)', label: '証券' },
   cash:  { icon: '💴', color: 'var(--accent)', label: '現金' },
   other: { icon: '📦', color: 'var(--text2)',  label: 'その他' },
@@ -672,8 +672,8 @@ function renderRecInputCard() {
 
   const fields = [
     { id: 'cash',        icon: '💴', name: '現金',        color: 'var(--accent)',  type: '現金' },
-    { id: 'yucho',       icon: '🏦', name: 'ゆうちょ銀行', color: 'var(--blue)',   type: '銀行' },
-    { id: 'rakuten',     icon: '🏦', name: '楽天銀行',     color: 'var(--blue)',   type: '銀行' },
+    { id: 'yucho',       icon: '🏦', name: 'ゆうちょ銀行', color: 'var(--mint)',   type: '銀行' },
+    { id: 'rakuten',     icon: '🏦', name: '楽天銀行',     color: 'var(--red)',   type: '銀行' },
     { id: 'paypay',      icon: '💳', name: 'PayPay残高',   color: 'var(--red)',    type: '電子マネー' },
   ];
 
@@ -1058,8 +1058,13 @@ function refreshSummaryLocal() {
   document.getElementById('sum-total').textContent   = '¥' + expense.toLocaleString();
   document.getElementById('sum-income').textContent  = '¥' + income.toLocaleString();
   const balEl = document.getElementById('sum-balance');
+  const balBox = document.getElementById('sum-balance-box');
   balEl.textContent = (balance >= 0 ? '＋' : '－') + '¥' + Math.abs(balance).toLocaleString();
   balEl.style.color = balance >= 0 ? 'var(--mint)' : 'var(--red)';
+  if (balBox) {
+    balBox.style.background = balance >= 0 ? 'var(--mint-light)' : 'var(--red-light)';
+    balBox.style.borderColor = balance >= 0 ? 'rgba(22,163,74,.2)' : 'rgba(220,38,38,.2)';
+  }
 
   // 前月比（支出ベース）
   const diffEl = document.getElementById('sum-diff');
@@ -1084,7 +1089,7 @@ function refreshSummaryLocal() {
     return;
   }
   const maxAmt = catEntries[0][1];
-  const barColors = ['var(--accent)','var(--pink)','var(--blue)','var(--mint)','var(--purple)','var(--yellow)','var(--text3)'];
+  const barColors = ['var(--accent)','var(--mint)','var(--purple)','var(--blue)','var(--yellow)','var(--text2)','var(--accent2)'];
   barsEl.innerHTML = catEntries.map(([cat, amt], i) =>
     `<div class="bar-row">
       <div class="bar-label" style="font-size:10px;width:72px">${cat}</div>
@@ -1208,7 +1213,7 @@ function renderTrend() {
     getBarContent: (idx, val, barH) => {
       const d = data[months[idx]];
       const safeH = Math.round((d.bank + d.cash) / Math.max(val, 1) * barH);
-      return `<div style="position:absolute;bottom:0;left:0;right:0;height:${safeH}px;background:var(--blue)"></div>`
+      return `<div style="position:absolute;bottom:0;left:0;right:0;height:${safeH}px;background:var(--accent)"></div>`
            + `<div style="position:absolute;top:0;left:0;right:0;height:${barH - safeH}px;background:var(--purple)"></div>`;
     },
     tableRowFn: (m, idx, isCur) => {
@@ -1241,7 +1246,7 @@ function renderCashTrend() {
     renderBarChart({
       barsId:'cash-bars', tbodyId:'cash-tbody', months:ms, values:safes, year,
       getDiff:(idx,val) => { const p=idx>0?safes[idx-1]:prevL; return p!==null?val-p:null; },
-      getBarContent:() => `<div style="position:absolute;inset:0;background:var(--blue)"></div>`,
+      getBarContent:() => `<div style="position:absolute;inset:0;background:var(--accent)"></div>`,
       tableRowFn:(m,idx,isCur) => {
         const s=safes[idx],p=idx>0?safes[idx-1]:prevL,df=p!==null?s-p:null;
         const dh=df===null?'<td class="num" style="color:var(--text3)">—</td>':`<td class="num ${df>=0?'pos':'neg'}">${df>=0?'＋':'－'}¥${Math.abs(df).toLocaleString()}</td>`;
@@ -1279,7 +1284,7 @@ function renderCashTrend() {
     barWrap.className = 'chart-bar';
     barWrap.style.cssText = `height:${depH + profH}px;opacity:${isCur ? 1 : 0.6}`;
     barWrap.innerHTML =
-      `<div style="position:absolute;bottom:0;left:0;right:0;height:${depH}px;background:var(--blue)"></div>` +
+      `<div style="position:absolute;bottom:0;left:0;right:0;height:${depH}px;background:var(--accent)"></div>` +
       (profH > 0 ? `<div style="position:absolute;bottom:${depH}px;left:0;right:0;height:${profH}px;background:var(--mint)"></div>` : '') +
       (lossH > 0 ? `<div style="position:absolute;bottom:0;left:0;right:0;height:${lossH}px;background:var(--red);opacity:0.7"></div>` : '');
 
@@ -2838,14 +2843,14 @@ function setEntryMode(mode) {
     incBtn.className = 'sign-btn active-pos';
     expBtn.className = 'sign-btn';
     submitBtn.style.background = 'var(--mint)';
-    submitBtn.style.boxShadow = '0 4px 12px rgba(18,200,138,.3)';
+    submitBtn.style.boxShadow = '0 4px 12px rgba(22,163,74,.3)';
     submitBtn.textContent = '＋ 収入を登録する';
     document.getElementById('cash-shop').placeholder = '例：4月分給与';
   } else {
     incBtn.className = 'sign-btn';
     expBtn.className = 'sign-btn active-neg';
     submitBtn.style.background = 'var(--accent)';
-    submitBtn.style.boxShadow = '0 4px 12px rgba(79,128,248,.3)';
+    submitBtn.style.boxShadow = '0 4px 12px rgba(212,160,23,.3)';
     submitBtn.textContent = '－ 支出を登録する';
     document.getElementById('cash-shop').placeholder = '例：コンビニ、薬局など';
   }
@@ -3077,6 +3082,11 @@ function applySummaryData(data, prevData) {
   const balEl = document.getElementById('sum-balance');
   balEl.textContent = (balance >= 0 ? '＋' : '－') + '¥' + Math.abs(balance).toLocaleString();
   balEl.style.color = balance >= 0 ? 'var(--mint)' : 'var(--red)';
+  const balBox2 = document.getElementById('sum-balance-box');
+  if (balBox2) {
+    balBox2.style.background = balance >= 0 ? 'var(--mint-light)' : 'var(--red-light)';
+    balBox2.style.borderColor = balance >= 0 ? 'rgba(22,163,74,.2)' : 'rgba(220,38,38,.2)';
+  }
   const keyMap = { rakuten: 'sum-rakuten', smbc: 'sum-smbc', paypay: 'sum-paypay', cash: 'sum-cash' };
   Object.entries(keyMap).forEach(([key, elId]) => {
     const el = document.getElementById(elId);
@@ -3098,7 +3108,7 @@ function applySummaryData(data, prevData) {
     return;
   }
   const maxAmt = catEntries[0][1];
-  const barColors = ['var(--accent)','var(--pink)','var(--blue)','var(--mint)','var(--purple)','var(--yellow)','var(--text3)'];
+  const barColors = ['var(--accent)','var(--mint)','var(--purple)','var(--blue)','var(--yellow)','var(--text2)','var(--accent2)'];
   barsEl.innerHTML = catEntries.map(([cat, amt], i) =>
     `<div class="bar-row">
       <div class="bar-label" style="font-size:10px;width:72px">${cat}</div>
