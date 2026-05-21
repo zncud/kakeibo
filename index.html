@@ -327,7 +327,7 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
     <div class="chart-scroll"><div class="chart-bars" id="trend-bars"></div></div>
     <div class="trend-legend">
       <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--accent)"></div>純資産</div>
-      <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--purple)"></div>証券</div>
+      <div class="trend-legend-item"><div class="trend-legend-dot" style="background:#c2660a"></div>証券</div>
     </div>
     <table class="asset-table">
       <thead><tr><th>月</th><th style="text-align:right">合計</th><th style="text-align:right">前月比</th></tr></thead>
@@ -335,27 +335,18 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
     </table>
   </div>
 
-  <!-- 純資産推移 -->
+  <!-- 純資産推移＋証券利益率（統合） -->
   <div class="card" style="border-color:#f0e0a0">
-    <div class="card-label">🏦 純資産推移（証券内訳）</div>
+    <div class="card-label">🏦 純資産推移・証券利益率</div>
     <div class="chart-scroll"><div class="chart-bars" id="cash-bars"></div></div>
+    <div id="rate-bars" style="display:none"></div>
     <div class="trend-legend" style="margin-top:8px">
       <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--accent)"></div>累計投資</div>
       <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--mint)"></div>利益額</div>
       <div class="trend-legend-item"><div class="trend-legend-dot" style="background:var(--red)"></div>含み損</div>
     </div>
-    <table class="asset-table" style="margin-top:10px">
-      <thead><tr><th>月</th><th style="text-align:right">累計投資</th><th style="text-align:right">利益額</th></tr></thead>
-      <tbody id="cash-tbody"></tbody>
-    </table>
-  </div>
-
-  <!-- 証券利益率推移 -->
-  <div class="card" style="border-color:#f0e0a0">
-    <div class="card-label">📈 証券利益率の推移</div>
-    <div style="font-size:10px;color:var(--text3);margin-bottom:10px">損益 ÷ 累計入金額 × 100</div>
-    <div class="chart-scroll"><div class="chart-bars" id="rate-bars"></div></div>
-    <table class="asset-table" style="margin-top:14px">
+    <div style="font-size:10px;color:var(--text3);margin-top:10px;margin-bottom:4px">損益 ÷ 累計入金額 × 100</div>
+    <table class="asset-table" style="margin-top:8px">
       <thead><tr><th>月</th><th style="text-align:right">証券評価額</th><th style="text-align:right">累計損益</th><th style="text-align:right">利益率</th></tr></thead>
       <tbody id="rate-tbody"></tbody>
     </table>
@@ -1214,7 +1205,7 @@ function renderTrend() {
       const d = data[months[idx]];
       const safeH = Math.round((d.bank + d.cash) / Math.max(val, 1) * barH);
       return `<div style="position:absolute;bottom:0;left:0;right:0;height:${safeH}px;background:var(--accent)"></div>`
-           + `<div style="position:absolute;top:0;left:0;right:0;height:${barH - safeH}px;background:var(--purple)"></div>`;
+           + `<div style="position:absolute;top:0;left:0;right:0;height:${barH - safeH}px;background:#c2660a"></div>`;
     },
     tableRowFn: (m, idx, isCur) => {
       const total = totals[idx];
