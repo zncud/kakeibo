@@ -93,11 +93,12 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
 .upload-text{font-size:13px;color:var(--text2);font-weight:500}
 .upload-hint{font-size:10px;color:var(--text3);margin-top:5px;font-family:'DM Mono',monospace}
 
-.preview-table{width:100%;border-collapse:collapse;font-size:11px}
-.preview-table th{text-align:left;padding:5px 6px;color:var(--text3);font-family:'DM Mono',monospace;font-weight:400;letter-spacing:.1em;border-bottom:1px solid var(--border)}
-.preview-table td{padding:7px 6px;border-bottom:1px solid var(--border);color:var(--text2)}
+.preview-table{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
+.preview-table th{text-align:left;padding:5px 4px;color:var(--text3);font-family:'DM Mono',monospace;font-weight:400;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+.preview-table td{padding:5px 4px;border-bottom:1px solid var(--border);color:var(--text2);overflow:hidden}
 .preview-table tr:last-child td{border-bottom:none}
 .preview-table .amt{font-family:'DM Mono',monospace;text-align:right;color:var(--text);font-weight:500}
+.preview-table td:nth-child(2){width:auto;overflow:hidden}
 
 .chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:3px 8px 3px 10px;border-radius:20px;font-weight:700;background:var(--accent-light);color:var(--accent);margin:2px}
 .chip-mint{background:var(--mint-light);color:var(--mint)}
@@ -432,19 +433,19 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
     <!-- 明細月の指定 -->
     <div style="background:var(--accent-light);border-radius:12px;padding:12px 14px;margin-bottom:14px">
       <div class="form-label" style="margin-bottom:8px">📅 この明細は何月分ですか？</div>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <select class="period-select" id="import-year" style="font-size:13px;padding:7px 12px"></select>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="import-year-label" style="font-size:13px;font-weight:600;color:var(--text)"></span>
         <span class="period-label">年</span>
         <select class="period-select" id="import-month" style="font-size:13px;padding:7px 12px"></select>
         <span class="period-label">月分</span>
       </div>
-      <div style="margin-top:8px;font-size:10px;color:var(--text2)" id="import-month-note">
+      <div style="margin-top:8px;font-size:10px;color:var(--text2)">
         ※ この月として概要・集計に登録されます
       </div>
     </div>
 
     <table class="preview-table">
-      <thead><tr><th id="preview-date-header">日付</th><th>店名</th><th style="text-align:right">金額</th><th>カテゴリ</th><th></th></tr></thead>
+      <thead><tr><th style="width:32px">日</th><th>店名</th><th style="text-align:right;width:64px">金額</th><th style="width:72px">カテゴリ</th><th style="width:20px"></th></tr></thead>
       <tbody id="preview-tbody">
       </tbody>
     </table>
@@ -3033,16 +3034,13 @@ async function reloadSummary() {
 // ── 取込月セレクタ初期化 ──
 function initImportMonthSelector() {
   const now = new Date();
-  const yearEl = document.getElementById('import-year');
   const monthEl = document.getElementById('import-month');
-  if (!yearEl || !monthEl) return;
-  if (yearEl.options.length > 1) return; // 既に初期化済み → 月選択をキープ
-  yearEl.innerHTML = '<option value="">— 年 —</option>';
-  for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 1; y++) {
-    const o = document.createElement('option');
-    o.value = y; o.textContent = y + '年';
-    yearEl.appendChild(o);
-  }
+  if (!monthEl) return;
+  // 年ラベルを今年に設定
+  const yearLabel = document.getElementById('import-year-label');
+  if (yearLabel) yearLabel.textContent = now.getFullYear();
+  // 月セレクタが未初期化の場合のみ生成
+  if (monthEl.options.length > 1) return;
   monthEl.innerHTML = '<option value="">— 月 —</option>';
   for (let m = 1; m <= 12; m++) {
     const o = document.createElement('option');
@@ -3052,7 +3050,7 @@ function initImportMonthSelector() {
 }
 
 function getImportYearMonth() {
-  const y = document.getElementById('import-year')?.value || new Date().getFullYear();
+  const y = document.getElementById('import-year-label')?.textContent || new Date().getFullYear();
   const m = document.getElementById('import-month')?.value || (new Date().getMonth() + 1);
   return { year: parseInt(y), month: parseInt(m), ym: `${y}/${String(m).padStart(2, '0')}` };
 }
@@ -3157,7 +3155,6 @@ async function handlePDFFile(file) {
 
     const filename = file.name;
     initImportMonthSelector();
-    autoDetectImportMonth(rows, cardType);
     updatePreview(rows, cardType, filename);
     document.getElementById('csv-preview').style.display = 'block';
     window._pendingImport = { cardType, filename, rows };
@@ -3335,9 +3332,7 @@ async function handleCSVReal(input) {
   const rows = parseCSV(text, cardType);
   if (!rows.length) { showToast('⚠ データが見つかりません。列の順番を確認してください', true); return; }
 
-  // 取込月セレクタを初期化（CSVの日付から自動推測）
   initImportMonthSelector();
-  autoDetectImportMonth(rows, cardType);
 
   // プレビュー更新
   updatePreview(rows, cardType, filename);
@@ -3469,17 +3464,21 @@ function updatePreview(rows, cardType, filename) {
   const catNames = getCategoryNames();
   tbody.innerHTML = rows.map((r, idx) => {
     const amt = r.amount || r.withdrawal || 0;
-    const dateVal = String(r.date || '').replace(/\//g, '-');
+    // 元の日付から「日」のみ抽出（YYYY/MM/DD の DD 部分）
+    const fullDate = String(r.date || '');
+    const dateParts = fullDate.split('/');
+    const dayVal = dateParts.length >= 3 ? parseInt(dateParts[2]) : '';
+    // GASへの送信用に元のフルYYYY/MM/DD日付を hidden data に保持
     const shopVal = (r.shop || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     const guessed = guessCategory(r.shop || '');
     const catOpts = catNames.map(c =>
       `<option value="${c}"${c === guessed ? ' selected' : ''}>${c}</option>`
     ).join('');
-    return `<tr>
-      <td><input type="date" data-field="date" value="${dateVal}" style="${inputStyle};font-size:10px;width:116px" oninput="updatePreviewTotal()"></td>
-      <td><input type="text" data-field="shop" value="${shopVal}" style="${inputStyle};font-size:11px;width:100%;min-width:80px" ></td>
-      <td><input type="number" data-field="amount" value="${amt}" style="${inputStyle};font-size:11px;width:72px;text-align:right" oninput="updatePreviewTotal()"></td>
-      <td><select data-field="category" style="${inputStyle};font-size:10px;max-width:90px"><option value="">未分類</option>${catOpts}</select></td>
+    return `<tr data-orig-date="${fullDate}">
+      <td><input type="number" data-field="day" value="${dayVal}" min="1" max="31" style="${inputStyle};font-size:11px;width:36px;text-align:center" oninput="updatePreviewTotal()"></td>
+      <td style="max-width:0"><input type="text" data-field="shop" value="${shopVal}" style="${inputStyle};font-size:11px;width:100%;min-width:0;max-width:100%;box-sizing:border-box"></td>
+      <td><input type="number" data-field="amount" value="${amt}" style="${inputStyle};font-size:11px;width:62px;text-align:right" oninput="updatePreviewTotal()"></td>
+      <td><select data-field="category" style="${inputStyle};font-size:10px;width:68px"><option value="">未分類</option>${catOpts}</select></td>
       <td><button onclick="removePreviewRow(this)" style="color:var(--red);background:none;border:none;cursor:pointer;font-size:15px;padding:2px 4px;line-height:1">×</button></td>
     </tr>`;
   }).join('');
@@ -3519,7 +3518,8 @@ async function importCSVToGAS() {
 
   // プレビューテーブルから編集済み行を取得（カテゴリも含む）
   const editedRows = Array.from(document.querySelectorAll('#preview-tbody tr')).map(tr => {
-    const date     = (tr.querySelector('input[data-field="date"]')?.value  || '').replace(/-/g, '/');
+    const day      = parseInt(tr.querySelector('input[data-field="day"]')?.value) || '';
+    const date     = day ? `${year}/${String(month).padStart(2,'0')}/${String(day).padStart(2,'0')}` : '';
     const shop     =  tr.querySelector('input[data-field="shop"]')?.value  || '';
     const amount   = parseInt(tr.querySelector('input[data-field="amount"]')?.value) || 0;
     const category =  tr.querySelector('select[data-field="category"]')?.value || '';
