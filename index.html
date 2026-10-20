@@ -2031,6 +2031,11 @@ function buildAvailableYearMonths() {
 
   Object.keys(detailCache || {}).forEach(ym => yms.add(ym));
 
+  // GASから取得した資産データの年月も追加
+  Object.keys(assetData || {}).forEach(y => {
+    Object.keys(assetData[y] || {}).forEach(m => yms.add(`${y}/${String(m).padStart(2,'0')}`));
+  });
+
   // 最古 ～ 今月まで全月を生成
   const sorted = [...yms].sort();
   if (!sorted.length) return [curYM];
@@ -2077,9 +2082,11 @@ function shiftSumPeriod(dir) {
   const sel = document.getElementById('sum-period');
   if (!sel) return;
   const opts = [...sel.options];
+  if (!opts.length) return;
   const idx = opts.findIndex(o => o.value === sel.value);
-  const newIdx = Math.max(0, Math.min(opts.length-1, idx + dir));
-  if (newIdx === idx) return;
+  const cur = idx < 0 ? 0 : idx;
+  const newIdx = Math.max(0, Math.min(opts.length-1, cur + dir));
+  if (newIdx === cur) return;
   sel.value = opts[newIdx].value;
   _animateSumSwipe(dir, () => onSumPeriodChange());
 }
@@ -2392,6 +2399,9 @@ window.addEventListener('load', async () => {
       }
       renderTrend();
       renderCashTrend();
+      // GASデータ取得後に月セレクタを再構築（過去月が選択可能になる）
+      initSumPeriodSelector();
+      initDetailPeriodSelector();
       // 証券利益率
       if (d.secRate?.ok && d.secRate.data?.length) {
         const rYear = parseInt(document.getElementById('graph-year').value);
@@ -3836,8 +3846,12 @@ function applySummaryData(data, prevData) {
 
 function applyLatestAsset(data) {
   if (!data?.ok) return;
+  // データなし（未登録）の場合は ¥— を表示
+  const noData = data.hasData === false || (data.total === 0 && !data.cash && !data.yucho && !data.rakuten && !data.paypay && !data.cumInvest && !data.pnl);
   const total = data.total || 0;
-  document.getElementById('rec-total').innerHTML = '¥' + total.toLocaleString() + '<span class="unit">円</span>';
+  document.getElementById('rec-total').innerHTML = noData
+    ? '¥—<span class="unit">円</span>'
+    : '¥' + total.toLocaleString() + '<span class="unit">円</span>';
   const safe = data.safeTotal || 0;
   const risk = data.riskTotal || 0;
   const cumInvest = data.cumInvest || 0;

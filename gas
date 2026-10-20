@@ -1,0 +1,1158 @@
+// ================================================================
+// おかねノート - Google Apps Script
+// スプレッドシートにコピペして「ウェブアプリとしてデプロイ」してください
+// ================================================================
+
+const SHEET = {
+  RAKUTEN:    '楽天カード',
+  SMBC:       '三井住友',
+  PAYPAY:     'PayPay',
+  BANK:       '楽天銀行',
+  CASH:       '現金',
+  ASSET:      '資産残高',
+  CATEGORIES: 'カテゴリ',
+  KEYWORDS:   'キーワードルール',
+  SETTINGS:   '設定',
+  IMPORTS:    '取込履歴',
+};
+
+// 資産残高シートの列定義
+const ASSET_COLS = {
+  DATE:        1,
+  CASH:        2,
+  YUCHO:       3,
+  RAKUTEN:     4,
+  BANK_TOTAL:  5,
+  PAYPAY:      6,
+  SAFE_TOTAL:  7,
+  MONTHLY_INV: 8,
+  CUM_INV:     9,
+  SEC_VALUE:   10,
+  PNL:         11,
+  RATE:        12,
+  RISK_TOTAL:  13,
+  TOTAL:       14,
+  PREV_DIFF:   15,
+};
+
+// ================================================================
+// エントリポイント
+// ================================================================
+function doPost(e) {
+  try {
+    let params;
+    const raw = e.postData.contents || '';
+    if (raw.startsWith('payload=')) {
+      const decoded = decodeURIComponent(raw.slice('payload='.length).replace(/\+/g, ' '));
+      params = JSON.parse(decoded);
+    } else {
+      params = JSON.parse(raw);
+    }
+
+    let result;
+    switch (params.action) {
+      case 'addAccount':          result = addAccount(params);          break;
+      case 'updateCustomBalance': result = updateCustomBalance(params); break;
+      case 'updateAllBalances':   result = updateAllBalances(params);   break;
+      case 'getLatestAsset':      result = getLatestAsset(params);      break;
+      case 'getBalanceCheck':     result = getBalanceCheck(params);     break;
+      case 'addCheckAdjust':      result = addCheckAdjust(params);      break;
+      case 'importCSV':           result = importCSV(params);           break;
+      case 'addCash':             result = addCash(params);             break;
+      case 'updateBalance':       result = updateBalance(params);       break;
+      case 'updateSecurities':    result = updateSecurities(params);    break;
+      case 'updateDeposit':       result = updateDeposit(params);       break;
+      case 'completeReconcile':   result = completeReconcile(params);   break;
+      case 'addAdjustment':       result = addAdjustment(params);       break;
+      case 'getInitialData':      result = getInitialData(params);      break;
+      case 'getCategories':       result = getCategories();             break;
+      case 'getKeywordRules':     result = getKeywordRules();           break;
+      case 'saveKeywordRules':    result = saveKeywordRules(params);    break;
+      case 'saveCategories':      result = saveCategories(params);      break;
+      case 'getSummary':          result = getSummary(params);          break;
+      case 'getAssetTrend':       result = getAssetTrend(params);       break;
+      case 'getSecRate':          result = getSecRate(params);          break;
+      case 'getSettings':         result = getSettings();               break;
+      case 'saveSettings':        result = saveSettings(params);        break;
+      case 'getDetails':          result = getDetails(params);          break;
+      case 'updateDetail':        result = updateDetail(params);        break;
+      case 'deleteDetail':        result = deleteDetail(params);        break;
+      case 'updateCategories':    result = updateCategories(params);    break;
+      case 'deduplicateSheet':    result = deduplicateSheet(params);    break;
+      case 'cancelImport':        result = cancelImport(params);        break;
+      default: result = { ok: false, error: '不明なアクション: ' + params.action };
+    }
+    return json(result);
+  } catch (err) {
+    return json({ ok: false, error: err.message, raw: (e.postData || {}).contents });
+  }
+}
+
+function doGet() {
+  return json({ ok: true, message: 'おかねノート GAS稼働中' });
+}
+
+function json(data) {
+  return ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.TEXT);
+}
+
+// ================================================================
+// セットアップ
+// ================================================================
+function setup() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const defs = [
+    { name: SHEET.RAKUTEN,    headers: ['引落日','利用日','店名・商品名','金額（円）','カテゴリ','取込ファイル','明細月'] },
+    { name: SHEET.SMBC,       headers: ['引落日','利用日','店名','金額（円）','カテゴリ','取込ファイル','明細月'] },
+    { name: SHEET.PAYPAY,     headers: ['利用日','店名','金額（円）','カテゴリ','取込ファイル','明細月'] },
+    { name: SHEET.BANK,       headers: ['取引日','摘要','出金額（円）','入金額（円）','カテゴリ','取込ファイル','明細月'] },
+    { name: SHEET.CASH,       headers: ['日付','店名・内容','金額（円）','カテゴリ'] },
+    { name: SHEET.ASSET,      headers: ['日付','現金','ゆうちょ','楽天銀行','(楽天+ゆうちょ)','PayPay','純資産','月次入金額','累計投資額','評価額','損益','利率(%)','リスク資産','総資産','先月との差'] },
+    { name: SHEET.CATEGORIES, headers: ['カテゴリ名'] },
+    { name: SHEET.KEYWORDS,   headers: ['キーワード','カテゴリ'] },
+    { name: SHEET.SETTINGS,   headers: ['キー','値'] },
+    { name: SHEET.IMPORTS,    headers: ['取込日時','カード種別','ファイル名','件数','合計金額','明細月'] },
+  ];
+
+  const report = [];
+  defs.forEach(({ name, headers }) => {
+    let ws = ss.getSheetByName(name);
+    if (!ws) { ws = ss.insertSheet(name); report.push(`✅ 新規作成: ${name}`); }
+    const currentHeaders = ws.getLastRow() > 0
+      ? ws.getRange(1, 1, 1, Math.max(ws.getLastColumn(), headers.length)).getValues()[0]
+      : [];
+    const needsUpdate = headers.some((h, i) => currentHeaders[i] !== h);
+    if (needsUpdate) {
+      ws.getRange(1, 1, 1, headers.length).setValues([headers]);
+      report.push(`🔧 ヘッダー修正: ${name}`);
+    } else {
+      report.push(`— 変更なし: ${name}`);
+    }
+    ws.getRange(1, 1, 1, headers.length)
+      .setBackground('#2E4057').setFontColor('#FFFFFF').setFontWeight('bold');
+    ws.setFrozenRows(1);
+  });
+
+  const catWs = ss.getSheetByName(SHEET.CATEGORIES);
+  if (catWs.getLastRow() <= 1) {
+    ['食費','交通費','日用品','趣味・娯楽','医療・健康','衣類','水道光熱費','通信費','保険','投資','その他']
+      .forEach(c => catWs.appendRow([c]));
+    report.push('✅ デフォルトカテゴリを追加');
+  }
+
+  const setWs = ss.getSheetByName(SHEET.SETTINGS);
+  const existingKeys = setWs.getLastRow() > 1
+    ? setWs.getRange(2, 1, setWs.getLastRow()-1, 1).getValues().flat()
+    : [];
+  [['rakuten_billing_day','27'],['smbc_billing_day','10'],
+   ['paypay_use_txdate','true'],['monthly_deposit','50000'],
+   ['dup_check_enabled','true']]
+    .forEach(([k, v]) => {
+      if (!existingKeys.includes(k)) { setWs.appendRow([k, v]); report.push(`✅ 設定追加: ${k}`); }
+    });
+
+  SpreadsheetApp.getUi().alert('✅ セットアップ完了！\n\n' + report.join('\n'));
+}
+
+// ================================================================
+// 資産残高シートから指定年月の総資産を取得
+// ================================================================
+function getLatestAsset(params) {
+  const { yearMonth } = params;
+  const ws = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.ASSET);
+  if (!ws || ws.getLastRow() < 2) return { ok: true, hasData: false, total: 0, prevTotal: null };
+
+  const lastCol = ws.getLastColumn();
+  const data = ws.getRange(2, 1, ws.getLastRow() - 1, lastCol).getValues();
+
+  function normalizeYM(val) {
+    if (val instanceof Date) return val.getFullYear() + '/' + String(val.getMonth() + 1).padStart(2, '0');
+    return String(val).substring(0, 7);
+  }
+
+  const C = ASSET_COLS;
+  const targetRows = data.filter(row => normalizeYM(row[0]) === yearMonth);
+  const targetRow = targetRows.length > 0
+    ? targetRows.reduce((best, row) => (Number(row[C.TOTAL-1]) || 0) > (Number(best[C.TOTAL-1]) || 0) ? row : best, targetRows[0])
+    : null;
+
+  const [y, m] = yearMonth.split('/').map(Number);
+  const prevYM = `${m === 1 ? y - 1 : y}/${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`;
+  const prevRows = data.filter(row => normalizeYM(row[0]) === prevYM);
+  const prevRow = prevRows.length > 0
+    ? prevRows.reduce((best, row) => (Number(row[C.TOTAL-1]) || 0) > (Number(best[C.TOTAL-1]) || 0) ? row : best, prevRows[0])
+    : null;
+
+  const total         = targetRow ? (Number(targetRow[C.TOTAL-1])      || 0) : 0;
+  const prevTotal     = prevRow   ? (Number(prevRow[C.TOTAL-1])        || 0) : null;
+  const cash          = targetRow ? (Number(targetRow[C.CASH-1])       || 0) : 0;
+  const yucho         = targetRow ? (Number(targetRow[C.YUCHO-1])      || 0) : 0;
+  const rakuten       = targetRow ? (Number(targetRow[C.RAKUTEN-1])    || 0) : 0;
+  const paypay        = targetRow ? (Number(targetRow[C.PAYPAY-1])     || 0) : 0;
+  const prevDiff      = targetRow ? (Number(targetRow[C.PREV_DIFF-1])  || 0) : 0;
+  const monthlyInvest = targetRow ? (Number(targetRow[C.MONTHLY_INV-1])|| 0) : 0;
+  const cumInvest     = targetRow ? (Number(targetRow[C.CUM_INV-1])    || 0) : 0;
+  const pnl           = targetRow ? (Number(targetRow[C.PNL-1])        || 0) : 0;
+  const riskTotal     = cumInvest + pnl;
+
+  return { ok: true, hasData: targetRow !== null, yearMonth, total, prevTotal, prevDiff,
+           cash, yucho, rakuten, paypay, pnl, monthlyInvest,
+           safeTotal: (cash + yucho + rakuten + paypay),
+           riskTotal, cumInvest };
+}
+
+// ================================================================
+// 全口座残高を月次履歴として記録
+// ================================================================
+function updateAllBalances(params) {
+  const { yearMonth, cash, yucho, rakuten, paypay, monthlyInvest, secValue } = params;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const C  = ASSET_COLS;
+
+  function normalizeYM(val) {
+    if (val instanceof Date) return val.getFullYear() + '/' + String(val.getMonth() + 1).padStart(2, '0');
+    return String(val).substring(0, 7);
+  }
+
+  const assetWs = ss.getSheetByName(SHEET.ASSET);
+
+  if (assetWs.getLastRow() > 1) {
+    const yms = assetWs.getRange(2, 1, assetWs.getLastRow() - 1, 1).getValues().flat();
+    for (let i = yms.length - 1; i >= 0; i--) {
+      if (normalizeYM(yms[i]) === yearMonth) assetWs.deleteRow(i + 2);
+    }
+  }
+
+  let cumInvest = monthlyInvest || 0;
+  if (assetWs.getLastRow() > 1) {
+    const assetRows = assetWs.getRange(2, 1, assetWs.getLastRow() - 1, C.MONTHLY_INV).getValues();
+    assetRows.forEach(r => {
+      const ym = normalizeYM(r[0]);
+      if (ym < yearMonth) cumInvest += Number(r[C.MONTHLY_INV - 1]) || 0;
+    });
+  }
+
+  const _cash      = cash          || 0;
+  const _yucho     = yucho         || 0;
+  const _rak       = rakuten       || 0;
+  const _pp        = paypay        || 0;
+  const _mInv      = monthlyInvest || 0;
+  const _pnl       = secValue      || 0;
+  const _cumInv    = cumInvest;
+  const _rate      = _cumInv > 0 ? Math.round(_pnl / _cumInv * 10000) / 100 : 0;
+  const _bankTotal = _rak + _yucho;
+  const _safeTotal = _cash + _yucho + _rak + _pp;
+  const _riskTotal = _cumInv + _pnl;
+  const _total     = _safeTotal + _riskTotal;
+
+  const [y, m] = yearMonth.split('/').map(Number);
+  const prevYM = `${m === 1 ? y-1 : y}/${String(m === 1 ? 12 : m-1).padStart(2,'0')}`;
+  let prevTotal = 0;
+  if (assetWs.getLastRow() > 1) {
+    const rows = assetWs.getRange(2, 1, assetWs.getLastRow()-1, C.TOTAL).getValues();
+    rows.forEach(r => { if (normalizeYM(r[0]) === prevYM) prevTotal = Number(r[C.TOTAL-1]) || 0; });
+  }
+  const _prevDiff = _total - prevTotal;
+
+  const today   = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+  const _secVal = _cumInv + _pnl;
+
+  const assetVals = new Array(15).fill('');
+  assetVals[C.DATE-1]        = today;
+  assetVals[C.CASH-1]        = _cash;
+  assetVals[C.YUCHO-1]       = _yucho;
+  assetVals[C.RAKUTEN-1]     = _rak;
+  assetVals[C.BANK_TOTAL-1]  = _bankTotal;
+  assetVals[C.PAYPAY-1]      = _pp;
+  assetVals[C.SAFE_TOTAL-1]  = _safeTotal;
+  assetVals[C.MONTHLY_INV-1] = _mInv;
+  assetVals[C.CUM_INV-1]     = _cumInv;
+  assetVals[C.SEC_VALUE-1]   = _secVal;
+  assetVals[C.PNL-1]         = _pnl;
+  assetVals[C.RATE-1]        = _rate;
+  assetVals[C.RISK_TOTAL-1]  = _riskTotal;
+  assetVals[C.TOTAL-1]       = _total;
+  assetVals[C.PREV_DIFF-1]   = _prevDiff;
+  assetWs.appendRow(assetVals);
+
+  return { ok: true, total: _total, safeTotal: _safeTotal, riskTotal: _riskTotal, pnl: _pnl, rate: _rate, prevDiff: _prevDiff };
+}
+
+// ================================================================
+// 収支照合
+// ================================================================
+function getBalanceCheck(params) {
+  const { yearMonth } = params;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  function normalizeYM(val) {
+    if (val instanceof Date) return val.getFullYear() + '/' + String(val.getMonth() + 1).padStart(2, '0');
+    return String(val).substring(0, 7);
+  }
+
+  const [y, m] = yearMonth.split('/').map(Number);
+  const prevYM = `${m === 1 ? y-1 : y}/${String(m === 1 ? 12 : m-1).padStart(2,'0')}`;
+
+  const assetWs = ss.getSheetByName(SHEET.ASSET);
+  const C = ASSET_COLS;
+  let safeCur = null, safePrev = null;
+  if (assetWs && assetWs.getLastRow() > 1) {
+    const rows = assetWs.getRange(2, 1, assetWs.getLastRow()-1, C.SAFE_TOTAL).getValues();
+    rows.forEach(r => {
+      const ym = normalizeYM(r[0]);
+      if (ym === yearMonth) safeCur  = Number(r[C.SAFE_TOTAL-1]) || 0;
+      if (ym === prevYM)    safePrev = Number(r[C.SAFE_TOTAL-1]) || 0;
+    });
+  }
+
+  const safeChange = (safeCur != null && safePrev != null) ? safeCur - safePrev : null;
+
+  const expSources = [
+    { sheet: SHEET.RAKUTEN, dateCol: 1, amountCol: 4 },
+    { sheet: SHEET.SMBC,    dateCol: 1, amountCol: 4 },
+    { sheet: SHEET.PAYPAY,  dateCol: 1, amountCol: 3 },
+    { sheet: SHEET.BANK,    dateCol: 1, amountCol: 3 },
+  ];
+  let totalExp = 0;
+  expSources.forEach(src => {
+    const ws = ss.getSheetByName(src.sheet);
+    if (!ws || ws.getLastRow() < 2) return;
+    const data = ws.getRange(2, 1, ws.getLastRow()-1, Math.max(src.dateCol, src.amountCol)).getValues();
+    data.forEach(r => {
+      if (normalizeYM(r[src.dateCol-1]) !== yearMonth) return;
+      totalExp += Number(r[src.amountCol-1]) || 0;
+    });
+  });
+
+  let cashIncome = 0, cashExp = 0;
+  const cashWs = ss.getSheetByName(SHEET.CASH);
+  if (cashWs && cashWs.getLastRow() > 1) {
+    const data = cashWs.getRange(2, 1, cashWs.getLastRow()-1, 3).getValues();
+    data.forEach(r => {
+      if (normalizeYM(r[0]) !== yearMonth) return;
+      const amt = Number(r[2]) || 0;
+      if (amt < 0) cashIncome += Math.abs(amt);
+      else         cashExp    += amt;
+    });
+  }
+
+  const totalIncome = cashIncome;
+  const totalExpAll = totalExp + cashExp;
+  const kakeiboChange = totalIncome - totalExpAll;
+  const diff = safeChange != null ? safeChange - kakeiboChange : null;
+
+  return { ok: true, yearMonth, prevYM, safeCur, safePrev, safeChange,
+           totalIncome, totalExp: totalExpAll, cashIncome, cashExp, kakeiboChange, diff };
+}
+
+function addCheckAdjust(params) {
+  const { yearMonth, amount, memo } = params;
+  const today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+  const note  = `【照合調整】${memo || yearMonth}`;
+  SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName(SHEET.CASH)
+    .appendRow([today, note, amount, '照合調整']);
+  return { ok: true };
+}
+
+// ================================================================
+// 口座追加・カスタム口座残高更新
+// ================================================================
+function addAccount(params) {
+  const { account, yearMonth, balance } = params;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  let masterWs = ss.getSheetByName('口座マスタ');
+  if (!masterWs) {
+    masterWs = ss.insertSheet('口座マスタ');
+    masterWs.appendRow(['ID', '口座名', '種別', '登録日時']);
+    masterWs.getRange(1, 1, 1, 4).setBackground('#2E4057').setFontColor('#FFFFFF').setFontWeight('bold');
+    masterWs.setFrozenRows(1);
+  }
+  masterWs.appendRow([
+    String(account.id), account.name, account.type,
+    Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm')
+  ]);
+
+  if (balance > 0 && yearMonth) {
+    const assetWs = ss.getSheetByName(SHEET.ASSET);
+    const headerRow = assetWs.getRange(1, 1, 1, assetWs.getLastColumn()).getValues()[0];
+    let colIdx = headerRow.indexOf(account.name);
+    if (colIdx < 0) {
+      colIdx = assetWs.getLastColumn();
+      assetWs.getRange(1, colIdx + 1).setValue(account.name);
+    }
+    const row = findOrCreateAssetRow(assetWs, yearMonth);
+    assetWs.getRange(row, colIdx + 1).setValue(balance);
+  }
+
+  return { ok: true };
+}
+
+function updateCustomBalance(params) {
+  const { yearMonth, name, balance } = params;
+  if (!yearMonth || !name) return { ok: false, error: 'パラメータ不足' };
+  const ss  = SpreadsheetApp.getActiveSpreadsheet();
+  const ws  = ss.getSheetByName(SHEET.ASSET);
+  const headerRow = ws.getRange(1, 1, 1, ws.getLastColumn()).getValues()[0];
+  let colIdx = headerRow.indexOf(name);
+  if (colIdx < 0) {
+    colIdx = ws.getLastColumn();
+    ws.getRange(1, colIdx + 1).setValue(name);
+  }
+  const row = findOrCreateAssetRow(ws, yearMonth);
+  ws.getRange(row, colIdx + 1).setValue(balance);
+  return { ok: true };
+}
+
+// ================================================================
+// CSV / PDF 取込
+// ================================================================
+function importCSV(params) {
+  const { cardType, filename, rows, statementYearMonth, allowPartial } = params;
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // ── 重複チェック（ファイル名単位）──
+  let alreadyImported = false;
+  if (getSettingValue('dup_check_enabled') === 'true') {
+    const impWs = ss.getSheetByName(SHEET.IMPORTS);
+    if (impWs.getLastRow() > 1) {
+      const history = impWs.getRange(2, 3, impWs.getLastRow() - 1, 1).getValues().flat();
+      alreadyImported = history.includes(filename);
+    }
+  }
+
+  // allowPartial=false のときのみファイル名重複で拒否
+  if (alreadyImported && !allowPartial) {
+    return { ok: false, duplicate: true, message: '取込済みファイル: ' + filename };
+  }
+
+  const settings = loadSettings();
+  const stmYM = statementYearMonth || '';
+
+  const sheetMap = { rakuten: SHEET.RAKUTEN, smbc: SHEET.SMBC, paypay: SHEET.PAYPAY, bank: SHEET.BANK };
+  const sheetName = sheetMap[cardType];
+  if (!sheetName) return { ok: false, error: '不明なカード種別: ' + cardType };
+
+  const ws = ss.getSheetByName(sheetName);
+
+  // ── 明細単位の重複チェック（常に既存行と照合）──
+  // ファイル名の一致に関係なく、シートに既にある行はスキップする
+  const existingKeys = new Set();
+
+  // Date型・文字列どちらでも "yyyy/MM/dd" に正規化
+  function toDateStr(val) {
+    if (!val) return '';
+    if (val instanceof Date) return Utilities.formatDate(val, 'Asia/Tokyo', 'yyyy/MM/dd');
+    return String(val).substring(0, 10);
+  }
+
+  if (ws.getLastRow() > 1) {
+    const maxCol = (cardType === 'paypay' || cardType === 'bank') ? 3 : 4;
+    const existingData = ws.getRange(2, 1, ws.getLastRow() - 1, maxCol).getValues();
+    existingData.forEach(r => {
+      // rakuten/smbc: A=引落日, B=利用日, C=店名, D=金額 → 利用日(B)+店名(C)+金額(D)でキー
+      // paypay/bank:  A=利用日, B=店名,  C=金額          → 利用日(A)+店名(B)+金額(C)でキー
+      const key = (cardType === 'paypay' || cardType === 'bank')
+        ? `${toDateStr(r[0])}|${r[1]}|${r[2]}`
+        : `${toDateStr(r[1])}|${r[2]}|${r[3]}`;
+      existingKeys.add(key);
+    });
+  }
+
+  // ── 書き込み行を生成 ──
+  const writeRows = [];
+  let skipped = 0;
+
+  if (cardType === 'rakuten') {
+    const day = parseInt(settings['rakuten_billing_day'] || '27');
+    // 引落日 = ユーザー指定月のday日（利用日が何月でも統一）
+    const billingDate = stmYMtoBillingDate(stmYM, day);
+    rows.forEach(r => {
+      const key = `${String(r.date).substring(0,10)}|${r.shop}|${r.amount}`;
+      if (existingKeys.has(key)) { skipped++; return; }
+      writeRows.push([billingDate, r.date, r.shop, r.amount, '', filename, stmYM]);
+    });
+
+  } else if (cardType === 'smbc') {
+    const day = parseInt(settings['smbc_billing_day'] || '10');
+    // 引落日 = ユーザー指定月のday日（利用日が何月でも統一）
+    const billingDate = stmYMtoBillingDate(stmYM, day);
+    rows.forEach(r => {
+      const key = `${String(r.date).substring(0,10)}|${r.shop}|${r.amount}`;
+      if (existingKeys.has(key)) { skipped++; return; }
+      writeRows.push([billingDate, r.date, r.shop, r.amount, '', filename, stmYM]);
+    });
+
+  } else if (cardType === 'paypay') {
+    rows.forEach(r => {
+      const key = `${String(r.date).substring(0,10)}|${r.shop}|${r.amount}`;
+      if (existingKeys.has(key)) { skipped++; return; }
+      writeRows.push([r.date, r.shop, r.amount, '', filename, stmYM]);
+    });
+
+  } else if (cardType === 'bank') {
+    rows.filter(r => (r.withdrawal || 0) > 0).forEach(r => {
+      const key = `${String(r.date).substring(0,10)}|${r.shop}|${r.withdrawal}`;
+      if (existingKeys.has(key)) { skipped++; return; }
+      writeRows.push([r.date, r.shop, r.withdrawal, r.deposit || 0, '', filename, stmYM]);
+    });
+  }
+
+  // G列ヘッダー確認
+  if (ws.getLastRow() === 1 || ws.getRange(1, 7).getValue() === '') {
+    ws.getRange(1, 7).setValue('明細月');
+  }
+
+  writeRows.forEach(row => ws.appendRow(row));
+
+  // 取込履歴（初回のみ記録）
+  if (!alreadyImported) {
+    const total = rows.reduce((s, r) => s + (r.amount || r.withdrawal || 0), 0);
+    ss.getSheetByName(SHEET.IMPORTS).appendRow([
+      Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm'),
+      cardType, filename, writeRows.length, total, stmYM
+    ]);
+  }
+
+  if (writeRows.length === 0) {
+    return { ok: true, count: 0, skipped, message: 'すべて取込済みのためスキップしました' };
+  }
+
+  return { ok: true, count: writeRows.length, skipped };
+}
+
+// 明細月（例:"2026/04"）と引落日から引落日文字列を生成
+// 利用日の月に関わらず、ユーザー指定月のday日で統一する
+function stmYMtoBillingDate(stmYM, billingDay) {
+  if (!stmYM) return '';
+  const [y, m] = stmYM.split('/').map(Number);
+  const billing = new Date(y, m - 1, billingDay);
+  return Utilities.formatDate(billing, 'Asia/Tokyo', 'yyyy/MM/dd');
+}
+
+// （後方互換用・現在は使用しない）
+function calcBillingDate(txDateStr, billingDay) {
+  const d = new Date(String(txDateStr).replace(/\//g, '-'));
+  const billing = new Date(d.getFullYear(), d.getMonth() + 1, billingDay);
+  return Utilities.formatDate(billing, 'Asia/Tokyo', 'yyyy/MM/dd');
+}
+
+// ================================================================
+// 現金入力
+// ================================================================
+function addCash(params) {
+  const { date, shop, amount, category } = params;
+  SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName(SHEET.CASH)
+    .appendRow([date, shop, amount, category]);
+  return { ok: true };
+}
+
+// ================================================================
+// 残高更新
+// ================================================================
+function updateBalance(params) {
+  const { yearMonth, account, balance } = params;
+  const ws = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.ASSET);
+  const row = findOrCreateAssetRow(ws, yearMonth);
+  const colMap = { bank: 2, cash: 4 };
+  ws.getRange(row, colMap[account]).setValue(balance);
+  recalcAsset(ws, row);
+  return { ok: true };
+}
+
+function recalcAsset(ws, row) {
+  const bank = ws.getRange(row, 2).getValue() || 0;
+  const sec  = ws.getRange(row, 3).getValue() || 0;
+  const cash = ws.getRange(row, 4).getValue() || 0;
+  ws.getRange(row, 5).setValue(bank + sec + cash);
+}
+
+// ================================================================
+// 入金額変更
+// ================================================================
+function updateDeposit(params) {
+  saveSettingValue('monthly_deposit', String(params.amount));
+  return { ok: true };
+}
+
+// ================================================================
+// 照合完了
+// ================================================================
+function completeReconcile(params) {
+  const ws = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.ASSET);
+  const row = findOrCreateAssetRow(ws, params.yearMonth);
+  ws.getRange(row, 6).setValue('照合済み');
+  ws.getRange(row, 7).setValue(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm'));
+  return { ok: true };
+}
+
+// ================================================================
+// 差異調整
+// ================================================================
+function addAdjustment(params) {
+  const { yearMonth, account, sign, amount, reason, memo } = params;
+  if (account === 'cash') {
+    const adj = sign === 1 ? amount : -amount;
+    const today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+    const note = `【調整】${reason}${memo ? ' / ' + memo : ''}`;
+    SpreadsheetApp.getActiveSpreadsheet()
+      .getSheetByName(SHEET.CASH)
+      .appendRow([today, note, adj, 'その他']);
+  }
+  return { ok: true };
+}
+
+// ================================================================
+// 起動時一括取得
+// ================================================================
+function getInitialData(params) {
+  const { year, month, yearMonth } = params;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const assetWs      = ss.getSheetByName(SHEET.ASSET);
+  const categoriesWs = ss.getSheetByName(SHEET.CATEGORIES);
+  const rakutenWs    = ss.getSheetByName(SHEET.RAKUTEN);
+  const smbcWs       = ss.getSheetByName(SHEET.SMBC);
+  const paypayWs     = ss.getSheetByName(SHEET.PAYPAY);
+  const cashWs       = ss.getSheetByName(SHEET.CASH);
+  const bankWs       = ss.getSheetByName(SHEET.BANK);
+
+  const C = ASSET_COLS;
+  const assetAllData = (assetWs && assetWs.getLastRow() > 1)
+    ? assetWs.getRange(2, 1, assetWs.getLastRow() - 1, C.PREV_DIFF).getValues()
+    : [];
+
+  function normalizeYM(val) {
+    if (val instanceof Date) return val.getFullYear() + '/' + String(val.getMonth() + 1).padStart(2, '0');
+    return String(val).substring(0, 7);
+  }
+
+  const catLast = categoriesWs ? categoriesWs.getLastRow() : 0;
+  const cats = catLast > 1
+    ? categoriesWs.getRange(2, 1, catLast - 1, 1).getValues().flat().filter(c => c !== '')
+    : [];
+  const categories = { ok: true, categories: cats };
+
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear  = month === 1 ? year - 1 : year;
+  const prevYM    = `${prevYear}/${String(prevMonth).padStart(2, '0')}`;
+
+  const targetRows = assetAllData.filter(r => normalizeYM(r[0]) === yearMonth);
+  const targetRow  = targetRows.length > 0
+    ? targetRows.reduce((b, r) => (Number(r[C.TOTAL-1])||0) > (Number(b[C.TOTAL-1])||0) ? r : b, targetRows[0])
+    : null;
+  const prevAssetRows = assetAllData.filter(r => normalizeYM(r[0]) === prevYM);
+  const prevAssetRow  = prevAssetRows.length > 0
+    ? prevAssetRows.reduce((b, r) => (Number(r[C.TOTAL-1])||0) > (Number(b[C.TOTAL-1])||0) ? r : b, prevAssetRows[0])
+    : null;
+
+  const latestAsset = {
+    ok: true, yearMonth,
+    total:        targetRow ? (Number(targetRow[C.TOTAL-1])      || 0) : 0,
+    prevTotal:    prevAssetRow ? (Number(prevAssetRow[C.TOTAL-1])|| 0) : null,
+    prevDiff:     targetRow ? (Number(targetRow[C.PREV_DIFF-1])  || 0) : 0,
+    cash:         targetRow ? (Number(targetRow[C.CASH-1])       || 0) : 0,
+    yucho:        targetRow ? (Number(targetRow[C.YUCHO-1])      || 0) : 0,
+    rakuten:      targetRow ? (Number(targetRow[C.RAKUTEN-1])    || 0) : 0,
+    paypay:       targetRow ? (Number(targetRow[C.PAYPAY-1])     || 0) : 0,
+    pnl:          targetRow ? (Number(targetRow[C.PNL-1])        || 0) : 0,
+    monthlyInvest:targetRow ? (Number(targetRow[C.MONTHLY_INV-1])|| 0) : 0,
+    cumInvest:    targetRow ? (Number(targetRow[C.CUM_INV-1])    || 0) : 0,
+    safeTotal:    targetRow ? (Number(targetRow[C.SAFE_TOTAL-1]) || 0) : 0,
+    riskTotal:    targetRow ? (Number(targetRow[C.RISK_TOTAL-1]) || 0) : 0,
+  };
+
+  const trendByMonth = {}, prevTrendByMonth = {};
+  const prevTrendYear = year - 1;
+  assetAllData.forEach(r => {
+    const ym = normalizeYM(r[0]);
+    const isCurrentYear = ym.startsWith(String(year));
+    const isPrevYear    = ym.startsWith(String(prevTrendYear));
+    if (!isCurrentYear && !isPrevYear) return;
+    const total = Number(r[C.TOTAL-1]) || 0;
+    const target = isCurrentYear ? trendByMonth : prevTrendByMonth;
+    if (!target[ym] || total > target[ym].total) {
+      const bank = (Number(r[C.YUCHO-1])||0) + (Number(r[C.RAKUTEN-1])||0) + (Number(r[C.PAYPAY-1])||0);
+      const sec  = Number(r[C.RISK_TOTAL-1]) || 0;
+      const cash = Number(r[C.CASH-1]) || 0;
+      const safe = Number(r[C.SAFE_TOTAL-1]) || (bank + cash);
+      target[ym] = { yearMonth: ym, bank, sec, cash, safe, total };
+    }
+  });
+  const trend     = { ok: true, data: Object.values(trendByMonth).sort((a,b) => a.yearMonth.localeCompare(b.yearMonth)) };
+  const prevTrend = { ok: true, year: prevTrendYear, data: Object.values(prevTrendByMonth).sort((a,b) => a.yearMonth.localeCompare(b.yearMonth)) };
+
+  const secByMonth = {};
+  assetAllData.forEach(r => {
+    const ym = normalizeYM(r[0]);
+    if (!ym.startsWith(String(year))) return;
+    const total = Number(r[C.TOTAL-1]) || 0;
+    if (!secByMonth[ym] || total > (secByMonth[ym]._total || 0)) {
+      const cumDeposit = Number(r[C.CUM_INV-1])   || 0;
+      const cumPnl     = Number(r[C.PNL-1])        || 0;
+      const riskTotal  = Number(r[C.RISK_TOTAL-1]) || 0;
+      const rate = cumDeposit > 0 ? Math.round(cumPnl / cumDeposit * 10000) / 100 : 0;
+      secByMonth[ym] = { yearMonth: ym, monthDeposit: Number(r[C.MONTHLY_INV-1])||0,
+                         cumDeposit, secValue: Number(r[C.SEC_VALUE-1])||0, cumPnl, rate, riskTotal, _total: total };
+    }
+  });
+  const secRate = { ok: true, data: Object.values(secByMonth).map(({_total,...rest})=>rest).sort((a,b)=>a.yearMonth.localeCompare(b.yearMonth)) };
+
+  function summarizeSheet(ws, dateCol, amountCol, catCol, targetYM) {
+    if (!ws || ws.getLastRow() <= 1) return { total: 0, cats: {}, income: 0 };
+    const maxCol = Math.max(dateCol, amountCol, catCol);
+    const rows = ws.getRange(2, 1, ws.getLastRow() - 1, maxCol).getValues();
+    let total = 0, income = 0;
+    const cats = {};
+    rows.forEach(row => {
+      if (normalizeYM(row[dateCol-1]) !== targetYM) return;
+      const amt = Number(row[amountCol-1]) || 0;
+      if (!amt) return;
+      if (amt < 0) { income += Math.abs(amt); return; }
+      total += amt;
+      const cat = String(row[catCol-1] || 'その他').trim() || 'その他';
+      cats[cat] = (cats[cat] || 0) + amt;
+    });
+    return { total, cats, income };
+  }
+
+  function buildSummary(targetYM) {
+    const sources = [
+      { key: 'rakuten', ws: rakutenWs, dateCol:1, amountCol:4, catCol:5, label:'楽天カード' },
+      { key: 'smbc',    ws: smbcWs,   dateCol:1, amountCol:4, catCol:5, label:'三井住友カード' },
+      { key: 'paypay',  ws: paypayWs, dateCol:1, amountCol:3, catCol:4, label:'PayPay' },
+      { key: 'cash',    ws: cashWs,   dateCol:1, amountCol:3, catCol:4, label:'現金' },
+    ];
+    let grandTotal = 0, totalIncome = 0;
+    const breakdown = {}, categoryTotals = {};
+    sources.forEach(src => {
+      const r = summarizeSheet(src.ws, src.dateCol, src.amountCol, src.catCol, targetYM);
+      breakdown[src.key] = { label: src.label, total: r.total };
+      grandTotal += r.total;
+      totalIncome += r.income;
+      Object.entries(r.cats).forEach(([k, v]) => { categoryTotals[k] = (categoryTotals[k]||0) + v; });
+    });
+    return { ok: true, yearMonth: targetYM, grandTotal, totalIncome, balance: totalIncome - grandTotal, breakdown, categoryTotals };
+  }
+
+  const ym      = `${year}/${String(month).padStart(2,'0')}`;
+  const prevYM2 = `${prevYear}/${String(prevMonth).padStart(2,'0')}`;
+  const summary     = buildSummary(ym);
+  const prevSummary = buildSummary(prevYM2);
+
+  const kwWs = ss.getSheetByName(SHEET.KEYWORDS);
+  let kwRules = [];
+  if (kwWs && kwWs.getLastRow() > 1) {
+    kwRules = kwWs.getRange(2, 1, kwWs.getLastRow() - 1, 2).getValues()
+      .filter(r => r[0]).map(r => ({ keyword: String(r[0]), category: String(r[1]) }));
+  }
+  const keywordRules = { ok: true, rules: kwRules };
+
+  const detailSources = [
+    { key: 'rakuten', ws: rakutenWs, dateCol:1, shopCol:3, amountCol:4, catCol:5 },
+    { key: 'smbc',    ws: smbcWs,   dateCol:1, shopCol:3, amountCol:4, catCol:5 },
+    { key: 'paypay',  ws: paypayWs, dateCol:1, shopCol:2, amountCol:3, catCol:4 },
+    { key: 'bank',    ws: bankWs,   dateCol:1, shopCol:2, amountCol:3, catCol:5 },
+    { key: 'cash',    ws: cashWs,   dateCol:1, shopCol:2, amountCol:3, catCol:4 },
+  ];
+  const detailRows = [];
+  detailSources.forEach(src => {
+    if (!src.ws || src.ws.getLastRow() <= 1) return;
+    const maxCol = Math.max(src.dateCol, src.shopCol, src.amountCol, src.catCol);
+    const rows = src.ws.getRange(2, 1, src.ws.getLastRow() - 1, maxCol).getValues();
+    rows.forEach((row, i) => {
+      if (toYM(row[src.dateCol - 1]) !== ym) return;
+      const amt = Number(row[src.amountCol - 1]) || 0;
+      if (!amt) return;
+      const dateVal = row[src.dateCol - 1];
+      detailRows.push({
+        src: src.key, rowNum: i + 2,
+        date: Utilities.formatDate(dateVal instanceof Date ? dateVal : new Date(dateVal), 'Asia/Tokyo', 'yyyy/MM/dd'),
+        shop: String(row[src.shopCol - 1] || ''),
+        amount: amt, type: amt < 0 ? 'income' : 'expense',
+        category: String(row[src.catCol - 1] || ''),
+      });
+    });
+  });
+  detailRows.sort((a, b) => b.date.localeCompare(a.date));
+  const details = { ok: true, rows: detailRows };
+
+  return { ok: true, categories, keywordRules, summary, prevSummary, trend, prevTrend, secRate, latestAsset, details };
+}
+
+// ================================================================
+// カテゴリ
+// ================================================================
+function getCategories() {
+  const ws = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.CATEGORIES);
+  const last = ws.getLastRow();
+  const cats = last > 1
+    ? ws.getRange(2, 1, last - 1, 1).getValues().flat().filter(c => c !== '')
+    : [];
+  return { ok: true, categories: cats };
+}
+
+function getKeywordRules() {
+  const ws = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.KEYWORDS);
+  if (!ws || ws.getLastRow() <= 1) return { ok: true, rules: [] };
+  const rules = ws.getRange(2, 1, ws.getLastRow() - 1, 2).getValues()
+    .filter(r => r[0]).map(r => ({ keyword: String(r[0]), category: String(r[1]) }));
+  return { ok: true, rules };
+}
+
+function saveKeywordRules(params) {
+  const { rules } = params;
+  const ws = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.KEYWORDS);
+  if (!ws) return { ok: false, error: 'シートが見つかりません' };
+  if (ws.getLastRow() > 1) ws.deleteRows(2, ws.getLastRow() - 1);
+  if (rules && rules.length) ws.getRange(2, 1, rules.length, 2).setValues(rules.map(r => [r.keyword, r.category]));
+  return { ok: true };
+}
+
+function saveCategories(params) {
+  const ws = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.CATEGORIES);
+  if (ws.getLastRow() > 1) ws.deleteRows(2, ws.getLastRow() - 1);
+  params.categories.forEach(c => ws.appendRow([c]));
+  return { ok: true };
+}
+
+// ================================================================
+// サマリー取得
+// ================================================================
+function toYM(val) {
+  if (!val && val !== 0) return '';
+  if (val instanceof Date) return val.getFullYear() + '/' + String(val.getMonth() + 1).padStart(2, '0');
+  return String(val).substring(0, 7);
+}
+
+function getSummary(params) {
+  const { year, month } = params;
+  const ym = `${year}/${String(month).padStart(2, '0')}`;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const sources = [
+    { key: 'rakuten', sheet: SHEET.RAKUTEN, dateCol: 1, amountCol: 4, catCol: 5, label: '楽天カード' },
+    { key: 'smbc',    sheet: SHEET.SMBC,    dateCol: 1, amountCol: 4, catCol: 5, label: '三井住友カード' },
+    { key: 'paypay',  sheet: SHEET.PAYPAY,  dateCol: 1, amountCol: 3, catCol: 4, label: 'PayPay' },
+    { key: 'cash',    sheet: SHEET.CASH,    dateCol: 1, amountCol: 3, catCol: 4, label: '現金' },
+  ];
+
+  const breakdown = {}, categoryTotals = {};
+  let grandTotal = 0, totalIncome = 0;
+
+  sources.forEach(src => {
+    const ws = ss.getSheetByName(src.sheet);
+    let total = 0;
+    if (ws && ws.getLastRow() > 1) {
+      const maxCol = Math.max(src.dateCol, src.amountCol, src.catCol);
+      const data = ws.getRange(2, 1, ws.getLastRow() - 1, maxCol).getValues();
+      data.forEach(row => {
+        if (toYM(row[src.dateCol - 1]) !== ym) return;
+        const amt = Number(row[src.amountCol - 1]) || 0;
+        if (amt === 0) return;
+        if (amt < 0) { totalIncome += Math.abs(amt); return; }
+        total += amt;
+        grandTotal += amt;
+        const cat = String(row[src.catCol - 1] || 'その他').trim() || 'その他';
+        categoryTotals[cat] = (categoryTotals[cat] || 0) + amt;
+      });
+    }
+    breakdown[src.key] = { label: src.label, total };
+  });
+
+  return { ok: true, yearMonth: ym, grandTotal, totalIncome, balance: totalIncome - grandTotal, breakdown, categoryTotals };
+}
+
+function debugSummary() {
+  const result = getSummary({ year: 2026, month: 4 });
+  Logger.log(JSON.stringify(result, null, 2));
+}
+
+// ================================================================
+// 資産推移取得
+// ================================================================
+function getAssetTrend(params) {
+  const { year } = params;
+  const ws = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.ASSET);
+  if (!ws || ws.getLastRow() < 2) return { ok: true, data: [] };
+
+  const C = ASSET_COLS;
+  const lastCol = Math.max(C.TOTAL, C.SAFE_TOTAL, C.RISK_TOTAL, C.CASH, C.YUCHO, C.RAKUTEN, C.PAYPAY);
+  const data = ws.getRange(2, 1, ws.getLastRow() - 1, lastCol).getValues();
+
+  function normalizeYM(val) {
+    if (val instanceof Date) return val.getFullYear() + '/' + String(val.getMonth() + 1).padStart(2, '0');
+    return String(val).substring(0, 7);
+  }
+
+  const byMonth = {};
+  data.forEach(r => {
+    const ym = normalizeYM(r[0]);
+    if (!ym.startsWith(String(year))) return;
+    const total = Number(r[C.TOTAL-1]) || 0;
+    if (!byMonth[ym] || total > byMonth[ym].total) {
+      const bank = (Number(r[C.YUCHO-1])||0) + (Number(r[C.RAKUTEN-1])||0) + (Number(r[C.PAYPAY-1])||0);
+      const sec  = Number(r[C.RISK_TOTAL-1]) || 0;
+      const cash = Number(r[C.CASH-1]) || 0;
+      const safe = Number(r[C.SAFE_TOTAL-1]) || (bank + cash);
+      byMonth[ym] = { yearMonth: ym, bank, sec, cash, safe, total: Number(r[C.TOTAL-1]) || (bank+sec+cash) };
+    }
+  });
+
+  return { ok: true, data: Object.values(byMonth).sort((a,b) => a.yearMonth.localeCompare(b.yearMonth)) };
+}
+
+// ================================================================
+// 証券利益率推移取得
+// ================================================================
+function getSecRate(params) {
+  const { year } = params;
+  const ws = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.ASSET);
+  if (!ws || ws.getLastRow() < 2) return { ok: true, data: [] };
+
+  const C = ASSET_COLS;
+  const data = ws.getRange(2, 1, ws.getLastRow() - 1, C.PREV_DIFF).getValues();
+
+  function normalizeYM(val) {
+    if (val instanceof Date) return val.getFullYear() + '/' + String(val.getMonth() + 1).padStart(2, '0');
+    return String(val).substring(0, 7);
+  }
+
+  const byMonth = {};
+  data.forEach(r => {
+    const ym = normalizeYM(r[0]);
+    if (!ym.startsWith(String(year))) return;
+    const total = Number(r[C.TOTAL-1]) || 0;
+    if (!byMonth[ym] || total > (byMonth[ym]._total || 0)) {
+      const cumDeposit = Number(r[C.CUM_INV-1])   || 0;
+      const cumPnl     = Number(r[C.PNL-1])        || 0;
+      const riskTotal  = Number(r[C.RISK_TOTAL-1]) || 0;
+      const rate = cumDeposit > 0 ? Math.round(cumPnl / cumDeposit * 10000) / 100 : 0;
+      byMonth[ym] = { yearMonth: ym, monthDeposit: Number(r[C.MONTHLY_INV-1])||0,
+                      cumDeposit, secValue: Number(r[C.SEC_VALUE-1])||0, cumPnl, rate, riskTotal, _total: total };
+    }
+  });
+
+  return { ok: true, data: Object.values(byMonth).map(({_total,...rest})=>rest).sort((a,b)=>a.yearMonth.localeCompare(b.yearMonth)) };
+}
+
+// ================================================================
+// 設定
+// ================================================================
+function getSettings() { return { ok: true, settings: loadSettings() }; }
+function saveSettings(params) {
+  Object.entries(params.settings).forEach(([k, v]) => saveSettingValue(k, String(v)));
+  return { ok: true };
+}
+
+// ================================================================
+// ユーティリティ
+// ================================================================
+function loadSettings() {
+  const ws = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.SETTINGS);
+  if (!ws || ws.getLastRow() < 2) return {};
+  return Object.fromEntries(
+    ws.getRange(2, 1, ws.getLastRow() - 1, 2).getValues()
+      .filter(([k]) => k).map(([k, v]) => [k, String(v)])
+  );
+}
+function getSettingValue(key) { return loadSettings()[key] || ''; }
+function saveSettingValue(key, value) {
+  const ws = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.SETTINGS);
+  if (ws.getLastRow() > 1) {
+    const keys = ws.getRange(2, 1, ws.getLastRow() - 1, 1).getValues().flat();
+    const idx = keys.indexOf(key);
+    if (idx >= 0) { ws.getRange(idx + 2, 2).setValue(value); return; }
+  }
+  ws.appendRow([key, value]);
+}
+
+function findOrCreateAssetRow(ws, yearMonth) {
+  if (ws.getLastRow() > 1) {
+    const yms = ws.getRange(2, 1, ws.getLastRow() - 1, 1).getValues().flat().map(String);
+    const idx = yms.indexOf(yearMonth);
+    if (idx >= 0) return idx + 2;
+  }
+  ws.appendRow([yearMonth, 0, 0, 0, 0, '未照合', '']);
+  return ws.getLastRow();
+}
+
+// ================================================================
+// 明細取得・編集・削除
+// ================================================================
+function getDetails(params) {
+  const { year, month } = params;
+  const ym = `${year}/${String(month).padStart(2, '0')}`;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const sources = [
+    { key: 'rakuten', sheet: SHEET.RAKUTEN, dateCol: 1, shopCol: 3, amountCol: 4, catCol: 5 },
+    { key: 'smbc',    sheet: SHEET.SMBC,    dateCol: 1, shopCol: 3, amountCol: 4, catCol: 5 },
+    { key: 'paypay',  sheet: SHEET.PAYPAY,  dateCol: 1, shopCol: 2, amountCol: 3, catCol: 4 },
+    { key: 'bank',    sheet: SHEET.BANK,    dateCol: 1, shopCol: 2, amountCol: 3, catCol: 5 },
+    { key: 'cash',    sheet: SHEET.CASH,    dateCol: 1, shopCol: 2, amountCol: 3, catCol: 4 },
+  ];
+
+  const rows = [];
+  sources.forEach(src => {
+    const ws = ss.getSheetByName(src.sheet);
+    if (!ws || ws.getLastRow() <= 1) return;
+    const maxCol = Math.max(src.dateCol, src.shopCol, src.amountCol, src.catCol);
+    const data = ws.getRange(2, 1, ws.getLastRow() - 1, maxCol).getValues();
+    data.forEach((row, i) => {
+      if (toYM(row[src.dateCol - 1]) !== ym) return;
+      const amt = Number(row[src.amountCol - 1]) || 0;
+      if (amt === 0) return;
+      rows.push({
+        src: src.key, rowNum: i + 2,
+        date: Utilities.formatDate(row[src.dateCol-1] instanceof Date ? row[src.dateCol-1] : new Date(row[src.dateCol-1]), 'Asia/Tokyo', 'yyyy/MM/dd'),
+        shop: String(row[src.shopCol - 1] || ''),
+        amount: amt, type: amt < 0 ? 'income' : 'expense',
+        category: String(row[src.catCol - 1] || ''),
+      });
+    });
+  });
+
+  rows.sort((a, b) => b.date.localeCompare(a.date));
+  return { ok: true, rows };
+}
+
+function updateDetail(params) {
+  const { src, rowNum, shop, amount, category, date } = params;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetMap = {
+    rakuten: { sheet: SHEET.RAKUTEN, dateCol: 1, shopCol: 3, amountCol: 4, catCol: 5 },
+    smbc:    { sheet: SHEET.SMBC,    dateCol: 1, shopCol: 3, amountCol: 4, catCol: 5 },
+    paypay:  { sheet: SHEET.PAYPAY,  dateCol: 1, shopCol: 2, amountCol: 3, catCol: 4 },
+    bank:    { sheet: SHEET.BANK,    dateCol: 1, shopCol: 2, amountCol: 3, catCol: 5 },
+    cash:    { sheet: SHEET.CASH,    dateCol: 1, shopCol: 2, amountCol: 3, catCol: 4 },
+  };
+  const m = sheetMap[src];
+  if (!m) return { ok: false, error: '不明なソース: ' + src };
+  const ws = ss.getSheetByName(m.sheet);
+  ws.getRange(rowNum, m.shopCol).setValue(shop);
+  ws.getRange(rowNum, m.amountCol).setValue(amount);
+  ws.getRange(rowNum, m.catCol).setValue(category);
+  if (date) ws.getRange(rowNum, m.dateCol).setValue(date);
+  return { ok: true };
+}
+
+function deleteDetail(params) {
+  const { src, rowNum } = params;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetMap = {
+    rakuten: SHEET.RAKUTEN, smbc: SHEET.SMBC, paypay: SHEET.PAYPAY,
+    bank: SHEET.BANK, cash: SHEET.CASH,
+  };
+  const sheetName = sheetMap[src];
+  if (!sheetName) return { ok: false, error: '不明なソース: ' + src };
+  ss.getSheetByName(sheetName).deleteRow(rowNum);
+  return { ok: true };
+}
+
+function updateCategories(params) {
+  const { updates } = params;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const catColMap = { rakuten: 5, smbc: 5, paypay: 4, bank: 5, cash: 4 };
+  const sheetMap  = { rakuten: SHEET.RAKUTEN, smbc: SHEET.SMBC, paypay: SHEET.PAYPAY, bank: SHEET.BANK, cash: SHEET.CASH };
+  updates.forEach(u => {
+    const ws = ss.getSheetByName(sheetMap[u.src]);
+    if (!ws || !u.rowNum) return;
+    ws.getRange(u.rowNum, catColMap[u.src]).setValue(u.category);
+  });
+  return { ok: true, count: updates.length };
+}
+
+// ================================================================
+// 重複行削除
+// ================================================================
+function deduplicateSheet(params) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const targets = params?.sheets
+    ? params.sheets
+    : [SHEET.RAKUTEN, SHEET.SMBC, SHEET.PAYPAY, SHEET.BANK, SHEET.CASH];
+
+  let totalRemoved = 0;
+  const report = [];
+
+  targets.forEach(sheetName => {
+    const ws = ss.getSheetByName(sheetName);
+    if (!ws || ws.getLastRow() <= 1) return;
+
+    const data = ws.getRange(2, 1, ws.getLastRow() - 1, ws.getLastColumn()).getValues();
+    const seen = new Set();
+    const toDelete = [];
+
+    data.forEach((row, i) => {
+      const key = row.map(c => String(c).trim()).join('|');
+      if (seen.has(key)) { toDelete.push(i + 2); } else { seen.add(key); }
+    });
+
+    toDelete.reverse().forEach(rowNum => ws.deleteRow(rowNum));
+    totalRemoved += toDelete.length;
+    report.push({ sheet: sheetName, removed: toDelete.length });
+  });
+
+  return { ok: true, totalRemoved, report };
+}
+
+function deduplicateAll() {
+  const result = deduplicateSheet({});
+  SpreadsheetApp.getUi().alert(
+    `✅ 重複削除完了\n合計 ${result.totalRemoved} 件削除\n\n` +
+    result.report.map(r => `${r.sheet}: ${r.removed}件`).join('\n')
+  );
+}
+
+// ================================================================
+// 取込取り消し
+// ================================================================
+function cancelImport(params) {
+  const { cardType, yearMonth, filename } = params;
+
+  // 各シートの 取込ファイル列・明細月列
+  const FILE_COL = { rakuten: 6, smbc: 6, paypay: 5, bank: 6 };
+  const YM_COL   = { rakuten: 7, smbc: 7, paypay: 6, bank: 7 };
+  const sheetMap = { rakuten: SHEET.RAKUTEN, smbc: SHEET.SMBC,
+                     paypay: SHEET.PAYPAY,   bank: SHEET.BANK };
+
+  const sheetName = sheetMap[cardType];
+  if (!sheetName) return { ok: false, error: '不明なカード種別: ' + cardType };
+
+  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 2) return { ok: true, deleted: 0 };
+
+  const fileCol = FILE_COL[cardType];
+  const ymCol   = YM_COL[cardType];
+  const data    = sheet.getRange(2, 1, sheet.getLastRow() - 1, Math.max(fileCol, ymCol)).getValues();
+
+  const toDelete = [];
+  data.forEach((row, i) => {
+    const fileMatch = !filename || String(row[fileCol - 1]) === filename;
+    const ymMatch   = String(row[ymCol - 1]) === yearMonth;
+    if (fileMatch && ymMatch) toDelete.push(i + 2);
+  });
+  toDelete.reverse().forEach(r => sheet.deleteRow(r));
+
+  // 取込履歴シートからも削除
+  // 列: 取込日時(1) カード種別(2) ファイル名(3) 件数(4) 合計金額(5) 明細月(6)
+  const impSheet = ss.getSheetByName(SHEET.IMPORTS);
+  if (impSheet && impSheet.getLastRow() > 1) {
+    const impData = impSheet.getRange(2, 1, impSheet.getLastRow() - 1, 6).getValues();
+    const impDel  = [];
+    impData.forEach((row, i) => {
+      const fileMatch = !filename || String(row[2]) === filename;
+      if (fileMatch && String(row[5]) === yearMonth && String(row[1]) === cardType) {
+        impDel.push(i + 2);
+      }
+    });
+    impDel.reverse().forEach(r => impSheet.deleteRow(r));
+  }
+
+  return { ok: true, deleted: toDelete.length };
+}
