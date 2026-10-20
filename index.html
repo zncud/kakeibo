@@ -2877,13 +2877,11 @@ async function deleteKeywordRule(i) {
 }
 
 
-const GAS_URL_KEY = 'gas_url';
-
 function getGasUrl() {
-  return localStorage.getItem(GAS_URL_KEY) || '';
+  return localStorage.getItem('gas_url') || '';
 }
 function setGasUrl(url) {
-  localStorage.setItem(GAS_URL_KEY, url);
+  localStorage.setItem('gas_url', url);
   GAS_URL = url;
 }
 
