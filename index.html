@@ -98,7 +98,8 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
 .preview-table th{text-align:left;color:var(--text3);font-family:'DM Mono',monospace;font-weight:400;border-bottom:1.5px solid var(--border)}
 .preview-table td{border-bottom:1px solid var(--border);color:var(--text2)}
 .preview-table tr:last-child td{border-bottom:none}
-.preview-table input,.preview-table select{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:4px;padding:3px 4px;background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;font-size:11px}
+.preview-table input,.preview-table select,.preview-table button{font-size:11px;font-family:'DM Mono',monospace}
+.preview-table input,.preview-table select{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:4px;padding:3px 4px;background:var(--bg);color:var(--text);-webkit-appearance:none;appearance:none}
 
 .chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:3px 8px 3px 10px;border-radius:20px;font-weight:700;background:var(--accent-light);color:var(--accent);margin:2px}
 .chip-mint{background:var(--mint-light);color:var(--mint)}
@@ -434,7 +435,7 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
     <div style="background:var(--accent-light);border-radius:12px;padding:12px 14px;margin-bottom:14px">
       <div class="form-label" style="margin-bottom:8px">📅 この明細は何月分ですか？</div>
       <div style="display:flex;align-items:center;gap:8px">
-        <span id="import-year-label" style="font-size:13px;font-weight:600;color:var(--text)"></span>
+        <select class="period-select" id="import-year" style="font-size:13px;padding:7px 12px"></select>
         <span class="period-label">年</span>
         <select class="period-select" id="import-month" style="font-size:13px;padding:7px 12px"></select>
         <span class="period-label">月分</span>
@@ -3003,11 +3004,19 @@ async function reloadSummary() {
 // ── 取込月セレクタ初期化 ──
 function initImportMonthSelector() {
   const now = new Date();
+  const yearEl = document.getElementById('import-year');
   const monthEl = document.getElementById('import-month');
   if (!monthEl) return;
-  // 年ラベルを今年に設定
-  const yearLabel = document.getElementById('import-year-label');
-  if (yearLabel) yearLabel.textContent = now.getFullYear();
+  // 年セレクタ（未初期化の場合のみ生成）
+  if (yearEl && yearEl.options.length === 0) {
+    const curY = now.getFullYear();
+    for (let y = curY - 2; y <= curY + 1; y++) {
+      const o = document.createElement('option');
+      o.value = y; o.textContent = y + '年';
+      if (y === curY) o.selected = true;
+      yearEl.appendChild(o);
+    }
+  }
   // 月セレクタが未初期化の場合のみ生成
   if (monthEl.options.length > 1) return;
   monthEl.innerHTML = '<option value="">— 月 —</option>';
@@ -3019,7 +3028,7 @@ function initImportMonthSelector() {
 }
 
 function getImportYearMonth() {
-  const y = document.getElementById('import-year-label')?.textContent || new Date().getFullYear();
+  const y = document.getElementById('import-year')?.value || new Date().getFullYear();
   const m = document.getElementById('import-month')?.value || (new Date().getMonth() + 1);
   return { year: parseInt(y), month: parseInt(m), ym: `${y}/${String(m).padStart(2, '0')}` };
 }
