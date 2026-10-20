@@ -900,21 +900,40 @@ async function onRecPeriodChange() {
 function updateRecTotal() { onRecPeriodChange(); }
 
 function updateRecDerivedTotal() {
-  if (!_recDerivedMode || _recPrevTotal === null) return;
+  if (!_recDerivedMode) return;
   const invest = parseInt(document.getElementById('rec-input-invest')?.value) || 0;
   const secVal = parseInt(document.getElementById('rec-input-sec-value')?.value) || 0;
-  const derived = _recPrevTotal + invest + secVal;
-  document.getElementById('rec-total').innerHTML = '¥' + derived.toLocaleString() + '<span class="unit">円</span>';
-  const diff = invest + secVal;
-  const diffEl = document.getElementById('rec-diff');
-  if (diffEl) {
-    if (diff > 0)      { diffEl.textContent = `＋ ¥${diff.toLocaleString()}`;           diffEl.style.color = 'var(--mint)'; }
-    else if (diff < 0) { diffEl.textContent = `▼ ¥${Math.abs(diff).toLocaleString()}`; diffEl.style.color = 'var(--red)'; }
-    else               { diffEl.textContent = '± ¥0'; diffEl.style.color = 'var(--text3)'; }
+  const derivedRisk = _recPrevRisk + invest + secVal;
+  const total = _recDerivedSafe + derivedRisk;
+
+  document.getElementById('rec-total').innerHTML = '¥' + total.toLocaleString() + '<span class="unit">円</span>';
+
+  const safeEl = document.getElementById('rec-safe-total');
+  const riskEl = document.getElementById('rec-risk-total');
+  if (safeEl) safeEl.textContent = '¥' + _recDerivedSafe.toLocaleString();
+  if (riskEl) riskEl.textContent = '¥' + derivedRisk.toLocaleString();
+
+  if (_recPrevTotal != null) {
+    const diff = total - _recPrevTotal;
+    const diffEl = document.getElementById('rec-diff');
+    if (diffEl) {
+      if (diff > 0)      { diffEl.textContent = `＋ ¥${diff.toLocaleString()}`;           diffEl.style.color = 'var(--mint)'; }
+      else if (diff < 0) { diffEl.textContent = `▼ ¥${Math.abs(diff).toLocaleString()}`; diffEl.style.color = 'var(--red)'; }
+      else               { diffEl.textContent = '± ¥0'; diffEl.style.color = 'var(--text3)'; }
+    }
   }
+
   const noteEl = document.getElementById('rec-derived-note');
-  if (noteEl && noteEl.style.display !== 'none') {
-    noteEl.innerHTML = `📐 推計値：先月 ¥${_recPrevTotal.toLocaleString()} ＋ 入金額 ¥${invest.toLocaleString()} ＋ 利益額 ¥${secVal.toLocaleString()}`;
+  if (noteEl) {
+    noteEl.style.display = 'block';
+    const bal = _recDerivedSafe - _recPrevSafe;
+    const balStr = (bal >= 0 ? '＋' : '－') + '¥' + Math.abs(bal).toLocaleString();
+    const invStr = '＋¥' + invest.toLocaleString();
+    const secStr = (secVal >= 0 ? '＋' : '－') + '¥' + Math.abs(secVal).toLocaleString();
+    noteEl.innerHTML =
+      `📐 推計値<br>` +
+      `SAFE　¥${_recPrevSafe.toLocaleString()} ${balStr}（収支）＝ ¥${_recDerivedSafe.toLocaleString()}<br>` +
+      `RISK　¥${_recPrevRisk.toLocaleString()} ${invStr}（入金） ${secStr}（利益）＝ ¥${derivedRisk.toLocaleString()}`;
   }
 }
 
@@ -979,25 +998,16 @@ async function loadLatestAsset() {
       setIfEmpty('rec-input-paypay',  snap.paypay);
       setIfEmpty('rec-input-invest',  snap.monthlyInvest);
     } else if (prevSnap) {
-      // 今月未登録 → 先月 ＋ 入金額 ＋ 利益額 で推計
-      const prevTotal = (prevSnap.safe || 0) + (prevSnap.sec || 0);
+      // 今月未登録 → SAFE=先月+収支 / RISK=先月+入金+利益 で推計
+      const prevSafe = prevSnap.safe || 0;
+      const prevRisk = prevSnap.sec  || 0;
+      const { balance } = calcLocalBalance(year, month);
       _recDerivedMode = true;
-      _recPrevTotal   = prevTotal;
-      const invest = parseInt(document.getElementById('rec-input-invest')?.value) || 0;
-      const secVal = parseInt(document.getElementById('rec-input-sec-value')?.value) || 0;
-      const derived = prevTotal + invest + secVal;
-      if (noteEl) {
-        noteEl.style.display = 'block';
-        noteEl.innerHTML = `📐 推計値：先月 ¥${prevTotal.toLocaleString()} ＋ 入金額 ¥${invest.toLocaleString()} ＋ 利益額 ¥${secVal.toLocaleString()}`;
-      }
-      applyLatestAsset({
-        ok: true,
-        total:    derived,
-        safeTotal: derived,
-        riskTotal: 0,
-        pnl: 0, cumInvest: 0,
-        prevTotal,
-      });
+      _recPrevSafe    = prevSafe;
+      _recPrevRisk    = prevRisk;
+      _recPrevTotal   = prevSafe + prevRisk;
+      _recDerivedSafe = prevSafe + balance;
+      updateRecDerivedTotal();
     } else {
       // データなし
       if (noteEl) noteEl.style.display = 'none';
@@ -1024,17 +1034,16 @@ async function loadLatestAsset() {
 
   const noteEl = document.getElementById('rec-derived-note');
   if (data.hasData === false && data.prevTotal != null) {
-    // 今月未登録 → 先月 ＋ 入金額 ＋ 利益額 で推計
+    // 今月未登録 → SAFE=先月+収支 / RISK=先月+入金+利益 で推計
+    const prevSafe = data.prevSafe ?? data.prevTotal;
+    const prevRisk = data.prevRisk ?? 0;
+    const { balance } = calcLocalBalance(year, month);
     _recDerivedMode = true;
+    _recPrevSafe    = prevSafe;
+    _recPrevRisk    = prevRisk;
     _recPrevTotal   = data.prevTotal;
-    const invest = parseInt(document.getElementById('rec-input-invest')?.value) || 0;
-    const secVal = parseInt(document.getElementById('rec-input-sec-value')?.value) || 0;
-    const derived = data.prevTotal + invest + secVal;
-    if (noteEl) {
-      noteEl.style.display = 'block';
-      noteEl.innerHTML = `📐 推計値：先月 ¥${data.prevTotal.toLocaleString()} ＋ 入金額 ¥${invest.toLocaleString()} ＋ 利益額 ¥${secVal.toLocaleString()}`;
-    }
-    applyLatestAsset({ ok: true, total: derived, safeTotal: derived, riskTotal: 0, pnl: 0, cumInvest: 0, prevTotal: data.prevTotal });
+    _recDerivedSafe = prevSafe + balance;
+    updateRecDerivedTotal();
   } else {
     if (noteEl) noteEl.style.display = 'none';
     applyLatestAsset(data);
@@ -2044,7 +2053,10 @@ let GAS_URL = localStorage.getItem('gas_url') || '';
 
 // 資産照合：推計モード用
 let _recDerivedMode = false;
+let _recPrevSafe    = 0;
+let _recPrevRisk    = 0;
 let _recPrevTotal   = null;
+let _recDerivedSafe = 0;
 
 // ══════════════════════════════════════════
 // 概要ページ：動的年月セレクタ・円グラフ・スワイプ

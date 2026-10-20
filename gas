@@ -184,19 +184,21 @@ function getLatestAsset(params) {
     ? prevRows.reduce((best, row) => (Number(row[C.TOTAL-1]) || 0) > (Number(best[C.TOTAL-1]) || 0) ? row : best, prevRows[0])
     : null;
 
-  const total         = targetRow ? (Number(targetRow[C.TOTAL-1])      || 0) : 0;
-  const prevTotal     = prevRow   ? (Number(prevRow[C.TOTAL-1])        || 0) : null;
-  const cash          = targetRow ? (Number(targetRow[C.CASH-1])       || 0) : 0;
-  const yucho         = targetRow ? (Number(targetRow[C.YUCHO-1])      || 0) : 0;
-  const rakuten       = targetRow ? (Number(targetRow[C.RAKUTEN-1])    || 0) : 0;
-  const paypay        = targetRow ? (Number(targetRow[C.PAYPAY-1])     || 0) : 0;
-  const prevDiff      = targetRow ? (Number(targetRow[C.PREV_DIFF-1])  || 0) : 0;
-  const monthlyInvest = targetRow ? (Number(targetRow[C.MONTHLY_INV-1])|| 0) : 0;
-  const cumInvest     = targetRow ? (Number(targetRow[C.CUM_INV-1])    || 0) : 0;
-  const pnl           = targetRow ? (Number(targetRow[C.PNL-1])        || 0) : 0;
+  const total         = targetRow ? (Number(targetRow[C.TOTAL-1])        || 0) : 0;
+  const prevTotal     = prevRow   ? (Number(prevRow[C.TOTAL-1])          || 0) : null;
+  const prevSafe      = prevRow   ? (Number(prevRow[C.SAFE_TOTAL-1])     || 0) : null;
+  const prevRisk      = prevRow   ? (Number(prevRow[C.RISK_TOTAL-1])     || 0) : null;
+  const cash          = targetRow ? (Number(targetRow[C.CASH-1])         || 0) : 0;
+  const yucho         = targetRow ? (Number(targetRow[C.YUCHO-1])        || 0) : 0;
+  const rakuten       = targetRow ? (Number(targetRow[C.RAKUTEN-1])      || 0) : 0;
+  const paypay        = targetRow ? (Number(targetRow[C.PAYPAY-1])       || 0) : 0;
+  const prevDiff      = targetRow ? (Number(targetRow[C.PREV_DIFF-1])    || 0) : 0;
+  const monthlyInvest = targetRow ? (Number(targetRow[C.MONTHLY_INV-1])  || 0) : 0;
+  const cumInvest     = targetRow ? (Number(targetRow[C.CUM_INV-1])      || 0) : 0;
+  const pnl           = targetRow ? (Number(targetRow[C.PNL-1])          || 0) : 0;
   const riskTotal     = cumInvest + pnl;
 
-  return { ok: true, hasData: targetRow !== null, yearMonth, total, prevTotal, prevDiff,
+  return { ok: true, hasData: targetRow !== null, yearMonth, total, prevTotal, prevSafe, prevRisk, prevDiff,
            cash, yucho, rakuten, paypay, pnl, monthlyInvest,
            safeTotal: (cash + yucho + rakuten + paypay),
            riskTotal, cumInvest };
