@@ -1023,7 +1023,9 @@ async function loadLatestAsset() {
   if (!data?.ok) { document.getElementById('rec-total').innerHTML = '¥—<span class="unit">円</span>'; return; }
 
   const noteEl = document.getElementById('rec-derived-note');
-  if (data.hasData === false && data.prevTotal != null) {
+  const gasNoData = data.hasData === false ||
+    (data.total === 0 && !data.cash && !data.yucho && !data.rakuten && !data.paypay && !data.cumInvest && !data.pnl);
+  if (gasNoData && data.prevTotal != null) {
     // 今月未登録 → 先月 ＋ 入金額 ＋ 利益額 で推計
     _recDerivedMode = true;
     _recPrevTotal   = data.prevTotal;
