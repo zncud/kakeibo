@@ -94,11 +94,11 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
 .upload-hint{font-size:10px;color:var(--text3);margin-top:5px;font-family:'DM Mono',monospace}
 
 .preview-table{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
-.preview-table th{text-align:left;padding:5px 4px;color:var(--text3);font-family:'DM Mono',monospace;font-weight:400;letter-spacing:.05em;border-bottom:1px solid var(--border)}
-.preview-table td{padding:5px 4px;border-bottom:1px solid var(--border);color:var(--text2);overflow:hidden}
+.preview-table th,.preview-table td{padding:4px 2px;overflow:hidden}
+.preview-table th{text-align:left;color:var(--text3);font-family:'DM Mono',monospace;font-weight:400;border-bottom:1.5px solid var(--border)}
+.preview-table td{border-bottom:1px solid var(--border);color:var(--text2)}
 .preview-table tr:last-child td{border-bottom:none}
-.preview-table .amt{font-family:'DM Mono',monospace;text-align:right;color:var(--text);font-weight:500}
-.preview-table td:nth-child(2){width:auto;overflow:hidden}
+.preview-table input,.preview-table select{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:4px;padding:3px 4px;background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;font-size:11px}
 
 .chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:3px 8px 3px 10px;border-radius:20px;font-weight:700;background:var(--accent-light);color:var(--accent);margin:2px}
 .chip-mint{background:var(--mint-light);color:var(--mint)}
@@ -445,7 +445,7 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
     </div>
 
     <table class="preview-table">
-      <thead><tr><th style="width:32px">日</th><th>店名</th><th style="text-align:right;width:64px">金額</th><th style="width:72px">カテゴリ</th><th style="width:20px"></th></tr></thead>
+      <thead><tr><th style="width:36px">日</th><th>店名</th><th style="text-align:right;width:66px">金額</th><th style="width:72px">カテゴリ</th><th style="width:24px"></th></tr></thead>
       <tbody id="preview-tbody">
       </tbody>
     </table>
@@ -3429,26 +3429,23 @@ function updatePreview(rows, cardType, filename) {
   const moreEl = document.getElementById('preview-more');
   if (moreEl) moreEl.style.display = 'none';
 
-  const inputStyle = 'border:1px solid var(--border2);border-radius:4px;padding:3px 5px;background:var(--bg);color:var(--text);font-family:\'DM Mono\',monospace';
   const catNames = getCategoryNames();
   tbody.innerHTML = rows.map((r, idx) => {
     const amt = r.amount || r.withdrawal || 0;
-    // 元の日付から「日」のみ抽出（YYYY/MM/DD の DD 部分）
     const fullDate = String(r.date || '');
     const dateParts = fullDate.split('/');
     const dayVal = dateParts.length >= 3 ? parseInt(dateParts[2]) : '';
-    // GASへの送信用に元のフルYYYY/MM/DD日付を hidden data に保持
     const shopVal = (r.shop || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     const guessed = guessCategory(r.shop || '');
     const catOpts = catNames.map(c =>
       `<option value="${c}"${c === guessed ? ' selected' : ''}>${c}</option>`
     ).join('');
     return `<tr data-orig-date="${fullDate}">
-      <td><input type="number" data-field="day" value="${dayVal}" min="1" max="31" style="${inputStyle};font-size:11px;width:36px;text-align:center" oninput="updatePreviewTotal()"></td>
-      <td style="max-width:0"><input type="text" data-field="shop" value="${shopVal}" style="${inputStyle};font-size:11px;width:100%;min-width:0;max-width:100%;box-sizing:border-box"></td>
-      <td><input type="number" data-field="amount" value="${amt}" style="${inputStyle};font-size:11px;width:62px;text-align:right" oninput="updatePreviewTotal()"></td>
-      <td><select data-field="category" style="${inputStyle};font-size:10px;width:68px"><option value="">未分類</option>${catOpts}</select></td>
-      <td><button onclick="removePreviewRow(this)" style="color:var(--red);background:none;border:none;cursor:pointer;font-size:15px;padding:2px 4px;line-height:1">×</button></td>
+      <td><input type="number" data-field="day" value="${dayVal}" min="1" max="31" style="text-align:center" oninput="updatePreviewTotal()"></td>
+      <td><input type="text" data-field="shop" value="${shopVal}"></td>
+      <td><input type="number" data-field="amount" value="${amt}" style="text-align:right" oninput="updatePreviewTotal()"></td>
+      <td><select data-field="category"><option value="">未分類</option>${catOpts}</select></td>
+      <td><button onclick="removePreviewRow(this)" style="color:var(--red);background:none;border:none;cursor:pointer;font-size:14px;padding:0;line-height:1;width:100%;text-align:center">×</button></td>
     </tr>`;
   }).join('');
 
