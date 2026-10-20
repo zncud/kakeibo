@@ -308,7 +308,6 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
 <div class="screen active" id="screen-summary">
 <div class="container">
   <!-- 後方互換用 hidden selects（既存関数が参照するため残す） -->
-  <select id="sum-period" style="display:none" onchange="onSumPeriodChange()"></select>
   <select id="sum-year"   style="display:none"><option value="2026">2026</option></select>
   <select id="sum-month"  style="display:none"><option value="10">10</option></select>
 
@@ -320,7 +319,10 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
       <div class="hero-card">
         <div class="hero-nav">
           <button class="hero-nav-btn" onclick="shiftSumPeriod(-1)">‹</button>
-          <span class="hero-period-text" id="sum-period-label">—</span>
+          <div style="position:relative;display:inline-flex;align-items:center;justify-content:center">
+            <span class="hero-period-text" id="sum-period-label">—</span>
+            <select id="sum-period" onchange="onSumPeriodChange()" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px"></select>
+          </div>
           <button class="hero-nav-btn" onclick="shiftSumPeriod(1)">›</button>
         </div>
         <div class="hero-expense-label">支出合計</div>
@@ -750,7 +752,7 @@ function renderRecInputCard() {
             <input type="number" inputmode="numeric"
               id="rec-input-invest"
               class="form-input" style="width:130px;text-align:right;padding:8px 10px;font-family:'DM Mono',monospace"
-              placeholder="0">
+              placeholder="0" oninput="updateRecDerivedTotal()">
           </div>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between">
@@ -760,7 +762,7 @@ function renderRecInputCard() {
             <input type="number" inputmode="numeric"
               id="rec-input-sec-value"
               class="form-input" style="width:130px;text-align:right;padding:8px 10px;font-family:'DM Mono',monospace"
-              placeholder="0">
+              placeholder="0" oninput="updateRecDerivedTotal()">
           </div>
         </div>
         <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">リスク資産 ＝ 累計投資額 ＋ 利益額　累計はGAS側で自動集計</div>
@@ -897,6 +899,25 @@ async function onRecPeriodChange() {
 
 function updateRecTotal() { onRecPeriodChange(); }
 
+function updateRecDerivedTotal() {
+  if (!_recDerivedMode || _recPrevTotal === null) return;
+  const invest = parseInt(document.getElementById('rec-input-invest')?.value) || 0;
+  const secVal = parseInt(document.getElementById('rec-input-sec-value')?.value) || 0;
+  const derived = _recPrevTotal + invest + secVal;
+  document.getElementById('rec-total').innerHTML = '¥' + derived.toLocaleString() + '<span class="unit">円</span>';
+  const diff = invest + secVal;
+  const diffEl = document.getElementById('rec-diff');
+  if (diffEl) {
+    if (diff > 0)      { diffEl.textContent = `＋ ¥${diff.toLocaleString()}`;           diffEl.style.color = 'var(--mint)'; }
+    else if (diff < 0) { diffEl.textContent = `▼ ¥${Math.abs(diff).toLocaleString()}`; diffEl.style.color = 'var(--red)'; }
+    else               { diffEl.textContent = '± ¥0'; diffEl.style.color = 'var(--text3)'; }
+  }
+  const noteEl = document.getElementById('rec-derived-note');
+  if (noteEl && noteEl.style.display !== 'none') {
+    noteEl.innerHTML = `📐 推計値：先月 ¥${_recPrevTotal.toLocaleString()} ＋ 入金額 ¥${invest.toLocaleString()} ＋ 利益額 ¥${secVal.toLocaleString()}`;
+  }
+}
+
 // ローカルの収支差を計算（純資産推計用）
 function calcLocalBalance(year, month) {
   const ym = `${year}/${String(month).padStart(2,'0')}`;
@@ -925,6 +946,8 @@ async function loadLatestAsset() {
   document.getElementById('rec-period-label').textContent = `総資産（${year}年${month}月）`;
 
   if (!GAS_URL) {
+    _recDerivedMode = false;
+    _recPrevTotal   = null;
     const snapshots = JSON.parse(localStorage.getItem('asset_snapshots') || '{}');
     const snap = snapshots[year]?.[month];
     let prevYear = year, prevMonth = month - 1;
@@ -956,21 +979,22 @@ async function loadLatestAsset() {
       setIfEmpty('rec-input-paypay',  snap.paypay);
       setIfEmpty('rec-input-invest',  snap.monthlyInvest);
     } else if (prevSnap) {
-      // 今月未登録 → 前月スナップ＋家計簿収支で推計
-      const { income, expense, balance } = calcLocalBalance(year, month);
-      const derivedSafe = (prevSnap.safe || 0) + balance;
-      const derivedSec  = (prevSnap.sec  || 0); // 投資月次未入力のため前月値
-      const prevTotal   = (prevSnap.safe || 0) + (prevSnap.sec || 0);
-      const balSign = balance >= 0 ? '＋' : '－';
+      // 今月未登録 → 先月 ＋ 入金額 ＋ 利益額 で推計
+      const prevTotal = (prevSnap.safe || 0) + (prevSnap.sec || 0);
+      _recDerivedMode = true;
+      _recPrevTotal   = prevTotal;
+      const invest = parseInt(document.getElementById('rec-input-invest')?.value) || 0;
+      const secVal = parseInt(document.getElementById('rec-input-sec-value')?.value) || 0;
+      const derived = prevTotal + invest + secVal;
       if (noteEl) {
         noteEl.style.display = 'block';
-        noteEl.innerHTML = `📐 推計値：前月純資産 ＋ 家計簿収支<br>収入 ¥${income.toLocaleString()} － 支出 ¥${expense.toLocaleString()} ＝ ${balSign}¥${Math.abs(balance).toLocaleString()}`;
+        noteEl.innerHTML = `📐 推計値：先月 ¥${prevTotal.toLocaleString()} ＋ 入金額 ¥${invest.toLocaleString()} ＋ 利益額 ¥${secVal.toLocaleString()}`;
       }
       applyLatestAsset({
         ok: true,
-        total:    derivedSafe + derivedSec,
-        safeTotal: derivedSafe,
-        riskTotal: derivedSec,
+        total:    derived,
+        safeTotal: derived,
+        riskTotal: 0,
         pnl: 0, cumInvest: 0,
         prevTotal,
       });
@@ -992,18 +1016,37 @@ async function loadLatestAsset() {
     return;
   }
 
+  _recDerivedMode = false;
+  _recPrevTotal   = null;
   document.getElementById('rec-total').innerHTML = '<span style="font-size:16px;color:var(--text3)">読込中…</span>';
   const data = await callGAS('getLatestAsset', { yearMonth });
   if (!data?.ok) { document.getElementById('rec-total').innerHTML = '¥—<span class="unit">円</span>'; return; }
-  applyLatestAsset(data);
-  // 入力欄に前回値をセット（未入力の場合のみ）
-  const setIfEmpty = (id, val) => { const el = document.getElementById(id); if (el && !el.value && val != null) el.value = val; };
-  setIfEmpty('rec-input-cash',      data.cash);
-  setIfEmpty('rec-input-yucho',     data.yucho);
-  setIfEmpty('rec-input-rakuten',   data.rakuten);
-  setIfEmpty('rec-input-paypay',    data.paypay);
-  setIfEmpty('rec-input-invest',    data.monthlyInvest);
-  setIfEmpty('rec-input-sec-value', data.pnl);
+
+  const noteEl = document.getElementById('rec-derived-note');
+  if (data.hasData === false && data.prevTotal != null) {
+    // 今月未登録 → 先月 ＋ 入金額 ＋ 利益額 で推計
+    _recDerivedMode = true;
+    _recPrevTotal   = data.prevTotal;
+    const invest = parseInt(document.getElementById('rec-input-invest')?.value) || 0;
+    const secVal = parseInt(document.getElementById('rec-input-sec-value')?.value) || 0;
+    const derived = data.prevTotal + invest + secVal;
+    if (noteEl) {
+      noteEl.style.display = 'block';
+      noteEl.innerHTML = `📐 推計値：先月 ¥${data.prevTotal.toLocaleString()} ＋ 入金額 ¥${invest.toLocaleString()} ＋ 利益額 ¥${secVal.toLocaleString()}`;
+    }
+    applyLatestAsset({ ok: true, total: derived, safeTotal: derived, riskTotal: 0, pnl: 0, cumInvest: 0, prevTotal: data.prevTotal });
+  } else {
+    if (noteEl) noteEl.style.display = 'none';
+    applyLatestAsset(data);
+    // 入力欄に前回値をセット（未入力の場合のみ）
+    const setIfEmpty = (id, val) => { const el = document.getElementById(id); if (el && !el.value && val != null) el.value = val; };
+    setIfEmpty('rec-input-cash',      data.cash);
+    setIfEmpty('rec-input-yucho',     data.yucho);
+    setIfEmpty('rec-input-rakuten',   data.rakuten);
+    setIfEmpty('rec-input-paypay',    data.paypay);
+    setIfEmpty('rec-input-invest',    data.monthlyInvest);
+    setIfEmpty('rec-input-sec-value', data.pnl);
+  }
 }
 
 // ── カテゴリ色管理 ──
@@ -1998,6 +2041,10 @@ async function submitAddAccount() {
 
 // ── GAS URL（他の関数より先に宣言）──
 let GAS_URL = localStorage.getItem('gas_url') || '';
+
+// 資産照合：推計モード用
+let _recDerivedMode = false;
+let _recPrevTotal   = null;
 
 // ══════════════════════════════════════════
 // 概要ページ：動的年月セレクタ・円グラフ・スワイプ
