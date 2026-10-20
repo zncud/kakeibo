@@ -591,13 +591,6 @@ html{overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:'
     <button class="filter-chip" data-src="bank" onclick="toggleDetailSrcFilter('bank',this)">楽天銀行</button>
     <button class="filter-chip" data-src="cash" onclick="toggleDetailSrcFilter('cash',this)">現金</button>
   </div>
-  <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
-    <select id="det-cat-filter" onchange="setDetailCatFilter(this.value)" style="flex:1;font-size:12px;padding:6px 10px;border:1.5px solid var(--border2);border-radius:20px;background:var(--surface);color:var(--text2);font-family:'Zen Maru Gothic',sans-serif">
-      <option value="">カテゴリ：すべて</option>
-    </select>
-    <button id="det-group-btn" class="filter-chip active" onclick="toggleDetailGroupBy()" style="white-space:nowrap">グループ</button>
-  </div>
-
   <!-- 自動分類ボタン -->
   <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
     <button class="btn btn-outline btn-sm" onclick="openKeywordModal()" style="flex:1">🏷 キーワード自動分類</button>
@@ -2498,8 +2491,6 @@ function guessCategory(shopName) {
 // 現在表示中の明細データ
 let detailRows = [];
 let detailSrcFilters = new Set(); // 空 = すべて
-let detailCatFilter  = '';
-let detailGroupBy    = 'category';
 const SRC_LABELS = {
   rakuten: { label: '楽天', cls: 'src-rakuten' },
   smbc:    { label: '三井住友', cls: 'src-smbc' },
@@ -2526,22 +2517,6 @@ function toggleDetailSrcFilter(src, btn) {
     if (detailSrcFilters.size === 0) allBtn?.classList.add('active');
   }
   renderDetails();
-}
-function setDetailCatFilter(val) {
-  detailCatFilter = val;
-  renderDetails();
-}
-function toggleDetailGroupBy() {
-  detailGroupBy = detailGroupBy === 'category' ? 'none' : 'category';
-  document.getElementById('det-group-btn')?.classList.toggle('active', detailGroupBy === 'category');
-  renderDetails();
-}
-function refreshDetailCatFilter() {
-  const sel = document.getElementById('det-cat-filter');
-  if (!sel) return;
-  const prev = sel.value;
-  sel.innerHTML = '<option value="">カテゴリ：すべて</option>' +
-    getCategoryNames().map(c => `<option value="${c}"${c === prev ? ' selected' : ''}>${c}</option>`).join('');
 }
 function initDetailPeriodSelector() {
   const yms = buildAvailableYearMonths();
@@ -2643,10 +2618,8 @@ function renderDetailItem(r) {
 }
 
 function renderDetails() {
-  refreshDetailCatFilter();
   const srcOk = r => detailSrcFilters.size === 0 || detailSrcFilters.has(r.src);
-  const catOk = r => !detailCatFilter || (r.category || '') === detailCatFilter;
-  const filtered = detailRows.filter(r => srcOk(r) && catOk(r));
+  const filtered = detailRows.filter(r => srcOk(r));
 
   const totalExp = filtered.filter(r => Number(r.amount) > 0).reduce((s,r) => s + Number(r.amount), 0);
   const totalInc = filtered.filter(r => Number(r.amount) < 0).reduce((s,r) => s + Math.abs(Number(r.amount)), 0);
@@ -2661,38 +2634,34 @@ function renderDetails() {
     return;
   }
 
-  const list = document.getElementById('det-list');
-  if (detailGroupBy === 'category') {
-    const groups = {};
-    filtered.forEach(r => {
-      const key = r.category || '未分類';
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(r);
-    });
-    const catOrder = getCategoryNames();
-    const sortedKeys = Object.keys(groups).sort((a, b) => {
-      if (a === '未分類') return 1;
-      if (b === '未分類') return -1;
-      const ia = catOrder.indexOf(a), ib = catOrder.indexOf(b);
-      if (ia < 0 && ib < 0) return a.localeCompare(b, 'ja');
-      if (ia < 0) return 1; if (ib < 0) return -1;
-      return ia - ib;
-    });
-    list.innerHTML = sortedKeys.map(key => {
-      const rows = groups[key];
-      const total = rows.filter(r => Number(r.amount) > 0).reduce((s,r) => s + Number(r.amount), 0);
-      const col = key === '未分類' ? '#9CA3AF' : getCategoryColor(key);
-      return `<div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;margin:0 -16px;background:${col}18;border-bottom:1px solid ${col}30;border-top:1px solid ${col}20">
-          <span style="font-size:11px;font-weight:700;color:${col}">${key}</span>
-          <span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:${col}">¥${total.toLocaleString()}</span>
-        </div>
-        ${rows.map(r => renderDetailItem(r)).join('')}
-      </div>`;
-    }).join('');
-  } else {
-    list.innerHTML = filtered.map(r => renderDetailItem(r)).join('');
-  }
+  // 常にカテゴリ別グループ表示
+  const groups = {};
+  filtered.forEach(r => {
+    const key = r.category || '未分類';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  });
+  const catOrder = getCategoryNames();
+  const sortedKeys = Object.keys(groups).sort((a, b) => {
+    if (a === '未分類') return 1;
+    if (b === '未分類') return -1;
+    const ia = catOrder.indexOf(a), ib = catOrder.indexOf(b);
+    if (ia < 0 && ib < 0) return a.localeCompare(b, 'ja');
+    if (ia < 0) return 1; if (ib < 0) return -1;
+    return ia - ib;
+  });
+  document.getElementById('det-list').innerHTML = sortedKeys.map(key => {
+    const rows = groups[key];
+    const total = rows.filter(r => Number(r.amount) > 0).reduce((s,r) => s + Number(r.amount), 0);
+    const col = key === '未分類' ? '#9CA3AF' : getCategoryColor(key);
+    return `<div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;margin:0 -16px;background:${col}18;border-bottom:1px solid ${col}30;border-top:1px solid ${col}20">
+        <span style="font-size:11px;font-weight:700;color:${col}">${key}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:${col}">¥${total.toLocaleString()}</span>
+      </div>
+      ${rows.map(r => renderDetailItem(r)).join('')}
+    </div>`;
+  }).join('');
 }
 
 // ── 自動分類実行 ──
