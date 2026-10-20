@@ -882,6 +882,12 @@ async function submitAllBalances() {
     showToast(`✅ ${yearMonth} の残高をすべて登録しました`);
     await loadLatestAsset();
     markDirty('summary');
+    // グラフを非同期更新
+    refreshTrend().catch(() => {});
+    refreshSecRate().catch(() => {});
+    // 照合結果が表示中なら再実行
+    const resultEl = document.getElementById('reconcile-result');
+    if (resultEl && resultEl.style.display !== 'none') runReconcile().catch(() => {});
   } else {
     showToast('⚠ 登録に失敗しました: ' + (res?.error || '不明'), true);
   }
@@ -930,7 +936,7 @@ async function loadLatestAsset() {
     if (prevMonth < 1) { prevMonth = 12; prevYear--; }
     const prevSnap = snapshots[prevYear]?.[prevMonth];
     const noteEl = document.getElementById('rec-derived-note');
-    const setIfEmpty = (id, val) => { const el = document.getElementById(id); if (el && !el.value && val) el.value = val; };
+    const setIfEmpty = (id, val) => { const el = document.getElementById(id); if (el && !el.value && val != null) el.value = val; };
 
     if (snap) {
       // 登録済みスナップショット（過去月・記録済み当月）
@@ -996,7 +1002,7 @@ async function loadLatestAsset() {
   if (!data?.ok) { document.getElementById('rec-total').innerHTML = '¥—<span class="unit">円</span>'; return; }
   applyLatestAsset(data);
   // 入力欄に前回値をセット（未入力の場合のみ）
-  const setIfEmpty = (id, val) => { const el = document.getElementById(id); if (el && !el.value && val) el.value = val; };
+  const setIfEmpty = (id, val) => { const el = document.getElementById(id); if (el && !el.value && val != null) el.value = val; };
   setIfEmpty('rec-input-cash',      data.cash);
   setIfEmpty('rec-input-yucho',     data.yucho);
   setIfEmpty('rec-input-rakuten',   data.rakuten);
@@ -1147,6 +1153,10 @@ function saveCategoryEdit(i) {
   closeModal();
   showToast(`カテゴリを更新しました`);
   if (GAS_URL) saveCategoriesGAS();
+  // 円グラフを即時更新
+  const cache = JSON.parse(localStorage.getItem('summary_cache') || 'null');
+  if (cache?.summary?.ok) applySummaryData(cache.summary, cache.prevSummary);
+  else refreshSummaryLocal();
 }
 
 // ── ローカルデータストア ──
@@ -1158,6 +1168,8 @@ const localStore = {
   bank:    [],  // { date, shop, withdrawal, deposit, category }
   cash:    [],  // { date, shop, amount, category }
 };
+const detailCache = {};
+let keywordRules = JSON.parse(localStorage.getItem('keyword_rules') || '[]');
 
 // CSV取込完了時にストアへ追加
 function storeImportedRows(cardType, rows, batchId) {
@@ -2258,11 +2270,15 @@ function applyCache() {
     }
     // 資産照合
     if (cache.latestAsset?.ok) applyLatestAsset(cache.latestAsset);
-    // カテゴリ
+    // カテゴリ（既存の色を保持）
     if (cache.categories?.ok && Array.isArray(cache.categories.categories)) {
-      categories = cache.categories.categories.map((c, i) =>
-        typeof c === 'string' ? { name: c, color: CAT_COLORS[i % CAT_COLORS.length] } : c
-      );
+      const oldCats = categories;
+      categories = cache.categories.categories.map((c, i) => {
+        const name = typeof c === 'string' ? c : c.name;
+        const existingColor = oldCats.find(e => e.name === name)?.color;
+        const color = existingColor || (typeof c === 'object' && c.color) || CAT_COLORS[i % CAT_COLORS.length];
+        return { name, color };
+      });
       saveCategories();
       renderCategories();
     }
@@ -2338,11 +2354,15 @@ window.addEventListener('load', async () => {
       }
       if (!d?.ok) return;
 
-      // カテゴリ
+      // カテゴリ（既存の色を保持）
       if (d.categories?.ok && Array.isArray(d.categories.categories)) {
-        categories = d.categories.categories.map((c, i) =>
-          typeof c === 'string' ? { name: c, color: CAT_COLORS[i % CAT_COLORS.length] } : c
-        );
+        const oldCats = categories;
+        categories = d.categories.categories.map((c, i) => {
+          const name = typeof c === 'string' ? c : c.name;
+          const existingColor = oldCats.find(e => e.name === name)?.color;
+          const color = existingColor || (typeof c === 'object' && c.color) || CAT_COLORS[i % CAT_COLORS.length];
+          return { name, color };
+        });
         saveCategories();
         renderCategories();
       }
@@ -2414,8 +2434,6 @@ window.addEventListener('load', async () => {
 // 明細画面
 // ================================================================
 
-// キーワードルール: { keyword, category }[]
-let keywordRules = JSON.parse(localStorage.getItem('keyword_rules') || '[]');
 if (!keywordRules.length) {
   keywordRules = [
     { keyword: '楽天証券', category: '投資' },
@@ -2471,9 +2489,6 @@ let detailRows = [];
 let detailSrcFilters = new Set(); // 空 = すべて
 let detailCatFilter  = '';
 let detailGroupBy    = 'category';
-// 明細のメモリキャッシュ（yearMonth → rows[]）
-const detailCache = {};
-
 const SRC_LABELS = {
   rakuten: { label: '楽天', cls: 'src-rakuten' },
   smbc:    { label: '三井住友', cls: 'src-smbc' },
@@ -3743,8 +3758,8 @@ async function submitCheckAdjust(amount, yearMonth) {
   const res = await callGAS('addCheckAdjust', { yearMonth, amount, memo });
   if (res?.ok) {
     showToast(`✅ 調整を記録しました（${amount >= 0 ? '収入' : '支出'} ¥${Math.abs(amount).toLocaleString()}）`);
-    // 照合を再実行して結果を更新
-    await runReconcile();
+    // 照合を再実行して結果を更新 + 純資産合計も更新
+    await Promise.all([runReconcile(), loadLatestAsset()]);
   } else {
     showToast('⚠ 記録に失敗しました', true);
   }
